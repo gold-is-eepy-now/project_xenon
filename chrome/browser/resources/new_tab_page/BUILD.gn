@@ -127,7 +127,14 @@ build_webui("build") {
     optimize_webui_host = "new-tab-page"
     optimize_webui_in_files = [
       "new_tab_page.js",
+      "lazy_action_chips.js",
+      "lazy_composebox.js",
+      "lazy_lens.js",
       "lazy_load.js",
+      "lazy_modules.js",
+      "lazy_most_visited.js",
+      "lazy_promos.js",
+      "lazy_voice.js",
     ]
     optimize_webui_excludes = [
                                 "chrome://resources/cr_components/color_change_listener/color_change_listener.mojom-webui.js",

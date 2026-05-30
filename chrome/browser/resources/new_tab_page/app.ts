@@ -2,24 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import './action_chips/action_chips.js';
 import './iframe.js';
 import './logo.js';
-import './ntp_composebox.js';
 import './ntp_searchbox.js';
 import '/strings.m.js';
 import 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
-import 'chrome://resources/cr_components/composebox/composebox.js';
-import 'chrome://resources/cr_components/composebox/threads_rail.js';
 
 import type {CustomizeButtonsElement} from 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {GlifAnimationState} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxState} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
-import {VoiceSearchAction as ComposeVoiceSearchAction} from 'chrome://resources/cr_components/composebox/composebox.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
 import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
@@ -30,12 +25,10 @@ import {hexColorToSkColor, skColorToRgba} from 'chrome://resources/js/color_util
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {FocusOutlineManager} from 'chrome://resources/js/focus_outline_manager.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {getTrustedScriptURL} from 'chrome://resources/js/static_types.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 
-import {ActionChipsRetrievalState} from './action_chips/action_chips.js';
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {BackgroundManager} from './background_manager.js';
@@ -54,7 +47,6 @@ import {NewTabPageProxy} from './new_tab_page_proxy.js';
 import {ShowNtpPromosResult} from './ntp_promo.mojom-webui.js';
 import type {NtpSearchboxElement} from './ntp_searchbox.js';
 import {$$} from './utils.js';
-import {Action as VoiceAction, recordVoiceAction} from './voice_search_overlay.js';
 import {WindowProxy} from './window_proxy.js';
 
 enum ModuleLoadStatus {
@@ -144,13 +136,25 @@ function recordCustomizeChromeOpen(element: NtpCustomizeChromeEntryPoint) {
       NtpCustomizeChromeEntryPoint.MAX_VALUE + 1);
 }
 
-// Adds a <script> tag that holds the lazy loaded code.
-function ensureLazyLoaded() {
-  const script = document.createElement('script');
-  script.type = 'module';
-  script.src = getTrustedScriptURL`./lazy_load.js`;
-  document.body.appendChild(script);
+const enum ActionChipsRetrievalState {
+  REQUESTED = 1,
+  UPDATED = 2,
 }
+
+const enum ComposeVoiceSearchAction {
+  ACTIVATE = 0,
+  QUERY_SUBMITTED = 1,
+}
+
+const enum VoiceAction {
+  ACTIVATE = 0,
+  ACTIVATE_KEYBOARD = 1,
+  QUERY_SUBMITTED = 3,
+}
+
+type LazyBundleName =
+    'lazy_action_chips'|'lazy_composebox'|'lazy_lens'|'lazy_modules'|
+    'lazy_most_visited'|'lazy_promos'|'lazy_voice';
 
 function recordShowBrowserPromosResult(result: ShowNtpPromosResult) {
   recordEnumeration(
@@ -479,6 +483,7 @@ export class AppElement extends AppElementBase {
   private backgroundImageLoadStart_: number = 0;
   private showWebstoreToastListenerId_: number|null = null;
   private pendingUndoToasts_: Array<{message: string, undo: () => void}> = [];
+  private requestedLazyBundles_: Set<LazyBundleName> = new Set();
 
   constructor() {
     performance.mark('app-creation-start');
@@ -741,7 +746,7 @@ export class AppElement extends AppElementBase {
     this.pageHandler_.onAppRendered(WindowProxy.getInstance().now());
     // Let the browser breathe and then render remaining elements.
     WindowProxy.getInstance().waitForLazyRender().then(() => {
-      ensureLazyLoaded();
+      this.loadInitialLazyBundles_();
       this.lazyRender_ = true;
     });
     this.printPerformance_();
@@ -813,6 +818,75 @@ export class AppElement extends AppElementBase {
   // For voice coherence: when error event is fired, this will run.
   onVoiceSearchError() {
     this.hasVoiceSearchError = true;
+  }
+
+  private loadLazyBundle_(name: LazyBundleName, loader: () => Promise<unknown>) {
+    if (this.requestedLazyBundles_.has(name)) {
+      return;
+    }
+
+    this.requestedLazyBundles_.add(name);
+    window.dispatchEvent(new CustomEvent('ntp-lazy-bundle-requested', {
+      detail: {bundle: name},
+    }));
+    void loader();
+  }
+
+  private loadInitialLazyBundles_() {
+    if (this.modulesEnabled_) {
+      this.loadLazyBundle_(
+          'lazy_modules', () => import('./lazy_modules.js'));
+    }
+
+    if (this.middleSlotPromoEnabled_ || this.browserPromoType_ === 'simple') {
+      this.loadLazyBundle_(
+          'lazy_promos', () => import('./lazy_promos.js'));
+    }
+
+    if (this.shortcutsEnabled_) {
+      this.loadLazyBundle_(
+          'lazy_most_visited', () => import('./lazy_most_visited.js'));
+    }
+
+    if (this.composeboxEnabled || this.composeButtonEnabled ||
+        this.enableThreadsRail_) {
+      this.loadLazyBundle_(
+          'lazy_composebox', () => import('./lazy_composebox.js'));
+    }
+
+    if (loadTimeData.getBoolean('searchboxLensSearch')) {
+      this.loadLazyBundle_('lazy_lens', () => import('./lazy_lens.js'));
+    }
+
+    if (loadTimeData.getBoolean('searchboxVoiceSearch')) {
+      this.loadLazyBundle_('lazy_voice', () => import('./lazy_voice.js'));
+    }
+
+    if (this.ntpNextFeaturesEnabled_ &&
+        (!this.ntpNextDisablementEnabled_ || this.isActionChipsVisible_)) {
+      this.loadLazyBundle_(
+          'lazy_action_chips', () => import('./lazy_action_chips.js'));
+    }
+  }
+
+  private loadComposeboxBundle_() {
+    this.loadLazyBundle_(
+        'lazy_composebox', () => import('./lazy_composebox.js'));
+  }
+
+  private loadLensBundle_() {
+    this.loadLazyBundle_('lazy_lens', () => import('./lazy_lens.js'));
+  }
+
+  private loadVoiceBundle_() {
+    this.loadLazyBundle_('lazy_voice', () => import('./lazy_voice.js'));
+  }
+
+  private recordVoiceAction_(action: VoiceAction) {
+    this.loadVoiceBundle_();
+    void import('./lazy_voice.js').then(({recordVoiceAction}) => {
+      recordVoiceAction(action);
+    });
   }
 
   // Called to update the OGB of relevant NTP state changes.
@@ -891,6 +965,7 @@ export class AppElement extends AppElementBase {
   }
 
   protected onOpenComposebox_(e: CustomEvent<ComposeboxState>) {
+    this.loadComposeboxBundle_();
     this.composeboxState_ = e.detail;
 
     this.toggleComposebox_();
@@ -955,18 +1030,19 @@ export class AppElement extends AppElementBase {
   }
 
   protected onOpenVoiceSearch_() {
+    this.loadVoiceBundle_();
     this.showVoiceSearchOverlay_ = true;
-    recordVoiceAction(VoiceAction.ACTIVATE);
+    this.recordVoiceAction_(VoiceAction.ACTIVATE);
   }
 
   protected onComposeVoiceSearchAction_(
       e: CustomEvent<{value: ComposeVoiceSearchAction}>) {
     switch (e.detail.value) {
       case ComposeVoiceSearchAction.ACTIVATE:
-        recordVoiceAction(VoiceAction.ACTIVATE);
+        this.recordVoiceAction_(VoiceAction.ACTIVATE);
         break;
       case ComposeVoiceSearchAction.QUERY_SUBMITTED:
-        recordVoiceAction(VoiceAction.QUERY_SUBMITTED);
+        this.recordVoiceAction_(VoiceAction.QUERY_SUBMITTED);
         break;
       default:
         assertNotReached();
@@ -974,6 +1050,7 @@ export class AppElement extends AppElementBase {
   }
 
   protected onOpenLensSearch_() {
+    this.loadLensBundle_();
     this.showLensUploadDialog_ = true;
   }
 
@@ -1052,8 +1129,9 @@ export class AppElement extends AppElementBase {
       }
     }
     if (ctrlKeyPressed && e.code === 'Period' && e.shiftKey) {
+      this.loadVoiceBundle_();
       this.showVoiceSearchOverlay_ = true;
-      recordVoiceAction(VoiceAction.ACTIVATE_KEYBOARD);
+      this.recordVoiceAction_(VoiceAction.ACTIVATE_KEYBOARD);
     }
   }
 

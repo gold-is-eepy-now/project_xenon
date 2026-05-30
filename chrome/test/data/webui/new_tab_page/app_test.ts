@@ -46,12 +46,22 @@ suite('NewTabPageAppTest', () => {
   let backgroundManager: TestMock<BackgroundManager>;
   let moduleResolver: PromiseResolver<Module[]>;
   let searchboxHandler: TestMock<SearchboxPageHandlerRemote>;
+  let lazyBundlesRequested: string[];
+  let lazyBundleRequestedListener: (event: Event) => void;
 
   const url: URL = new URL(location.href);
   const backgroundImageLoadTime: number = 123;
 
   setup(async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    lazyBundlesRequested = [];
+    lazyBundleRequestedListener = (event: Event) => {
+      lazyBundlesRequested.push(
+          (event as CustomEvent<{bundle: string}>).detail.bundle);
+    };
+    window.addEventListener(
+        'ntp-lazy-bundle-requested', lazyBundleRequestedListener);
 
     windowProxy = installMock(WindowProxy);
     handler = installMock(
@@ -126,6 +136,11 @@ suite('NewTabPageAppTest', () => {
     await microtasksFinished();
 
     customizeButtons = app.$.customizeButtons;
+  });
+
+  teardown(() => {
+    window.removeEventListener(
+        'ntp-lazy-bundle-requested', lazyBundleRequestedListener);
   });
 
   function getCustomizeButton(): CrButtonElement {
@@ -871,6 +886,37 @@ suite('NewTabPageAppTest', () => {
       assertEquals(1, handler.getCallCount('onModulesLoadedWithData'));
       assertEquals(
           0, app.shadowRoot.querySelectorAll('ntp-module-wrapper').length);
+    });
+  });
+
+
+  suite('LazyBundles', () => {
+    suiteSetup(() => {
+      loadTimeData.overrideValues({
+        actionChipsEnabled: false,
+        browserPromoType: 'disabled',
+        middleSlotPromoEnabled: false,
+        modulesEnabled: false,
+        ntpNextFeaturesEnabled: false,
+        searchboxLensSearch: false,
+        searchboxShowComposeEntrypoint: false,
+        searchboxShowComposebox: false,
+        searchboxVoiceSearch: false,
+        shortcutsEnabled: false,
+      });
+    });
+
+    test('does not request modules bundle when modules are disabled', () => {
+      assertFalse(lazyBundlesRequested.includes('lazy_modules'));
+      assertEquals(0, app.shadowRoot.querySelectorAll('ntp-modules').length);
+    });
+
+    test('does not request promos bundle when promos are disabled', () => {
+      assertFalse(lazyBundlesRequested.includes('lazy_promos'));
+      assertEquals(
+          0, app.shadowRoot.querySelectorAll('ntp-middle-slot-promo').length);
+      assertEquals(
+          0, app.shadowRoot.querySelectorAll('individual-promos').length);
     });
   });
 
