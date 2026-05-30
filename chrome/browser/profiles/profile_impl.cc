@@ -39,6 +39,7 @@
 #include "base/version.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "build/config/xenon/xenon_buildflags.h"
 #include "chrome/browser/background/background_contents_service_factory.h"
 #include "chrome/browser/background_fetch/background_fetch_delegate_factory.h"
 #include "chrome/browser/background_fetch/background_fetch_delegate_impl.h"
@@ -419,6 +420,12 @@ void ProfileImpl::RegisterProfilePrefs(
                                home_page_flags);
   registry->RegisterStringPref(prefs::kNewTabPageLocationOverride,
                                std::string());
+
+#if BUILDFLAG(XENON_ENABLE_CUSTOMIZATION_UI)
+  // Xenon: user-configurable custom start / new tab page.
+  registry->RegisterBooleanPref(prefs::kXenonNewTabPageEnabled, false);
+  registry->RegisterStringPref(prefs::kXenonNewTabPageUrl, std::string());
+#endif
 
 #if BUILDFLAG(ENABLE_PRINTING)
   registry->RegisterBooleanPref(prefs::kPrintingEnabled, true);

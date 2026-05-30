@@ -704,6 +704,7 @@ source_set("core") {
     ":universal_web_contents_observers",
     "//base/allocator:buildflags",
     "//build/config/linux/dbus:buildflags",
+    "//build/config/xenon:buildflags",
     "//chrome/browser/accessibility",
     "//chrome/browser/actor",
     "//chrome/browser/actor:impl",
