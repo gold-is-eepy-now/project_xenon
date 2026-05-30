@@ -362,9 +362,17 @@ bool GetAnchorsIfSupported(std::string_view selector,
                            bool is_site_specific,
                            std::vector<std::string>& classes,
                            std::vector<std::string>& ids) {
-  // Skip empty selectors and at-rules (e.g., @media).
+  // Skip empty selectors, at-rules (e.g., @media), and selectors that
+  // could break out of the selector context when later serialized into a
+  // browser-owned style sheet. Cosmetic rules are selectors only; filter lists
+  // must never provide declaration blocks, markup, or script-like payloads.
   if (selector.empty() || selector.starts_with('@')) {
     return false;
+  }
+  for (char c : selector) {
+    if (c == '{' || c == '}' || c == '<' || c == '>' || c == '\0') {
+      return false;
+    }
   }
 
   // State variables for the parser.

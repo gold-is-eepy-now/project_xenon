@@ -73,6 +73,11 @@ class WebDocumentSubresourceFilter {
   // ads but doesn't actually block them).
   virtual bool IsDryRun() = 0;
 
+  // Returns true when browser-side policy has disabled filtering for this
+  // document (for example, a per-site Shields exception). Cosmetic filtering
+  // must respect this switch just like network blocking.
+  virtual bool IsFilteringDisabledForDocument() = 0;
+
   // Returns the unique ID of the ruleset currently being used for filtering.
   // This is used by the renderer (e.g. in SubresourceStyleFilter) to partition
   // caches by ruleset version.

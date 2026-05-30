@@ -90,6 +90,7 @@ class WebDocumentSubresourceFilterImpl final
                         uint32_t hash,
                         std::vector<std::string_view>& out_selectors) override;
   bool IsDryRun() override;
+  bool IsFilteringDisabledForDocument() override;
   uint64_t GetRulesetId() const override;
 
   const mojom::ActivationState& activation_state() const {

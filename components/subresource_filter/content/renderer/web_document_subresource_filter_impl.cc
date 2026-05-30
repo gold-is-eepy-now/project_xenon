@@ -116,6 +116,10 @@ bool WebDocumentSubresourceFilterImpl::IsDryRun() {
          mojom::ActivationLevel::kDryRun;
 }
 
+bool WebDocumentSubresourceFilterImpl::IsFilteringDisabledForDocument() {
+  return filter_.activation_state().filtering_disabled_for_document;
+}
+
 uint64_t WebDocumentSubresourceFilterImpl::GetRulesetId() const {
   return filter_.GetRulesetId();
 }

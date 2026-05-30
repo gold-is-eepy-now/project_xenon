@@ -294,6 +294,7 @@
 #include "third_party/blink/renderer/core/loader/anchor_element_interaction_tracker.h"
 #include "third_party/blink/renderer/core/loader/cookie_jar.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
+#include "third_party/blink/renderer/core/loader/subresource_filter.h"
 #include "third_party/blink/renderer/core/loader/frame_fetch_context.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/loader/http_refresh_scheduler.h"
@@ -4387,6 +4388,10 @@ bool Document::CheckCompletedInternal() {
     return false;
   http_refresh_scheduler_->MaybeStartTimer();
   View()->HandleLoadCompleted();
+  if (Loader() && Loader()->GetSubresourceFilter()) {
+    Loader()->GetSubresourceFilter()->ScheduleCosmeticFiltering(
+        *this, SubresourceFilter::CosmeticFilteringMilestone::kLoadComplete);
+  }
   // The document itself is complete, but if a child frame was restarted due to
   // an event, this document is still considered to be in progress.
   if (!AllDescendantsAreComplete(this))
@@ -7942,6 +7947,11 @@ void Document::FinishedParsing() {
   if (document_timing_.DomContentLoadedEventEnd().is_null())
     document_timing_.MarkDomContentLoadedEventEnd();
   SetParsingState(kFinishedParsing);
+
+  if (Loader() && Loader()->GetSubresourceFilter()) {
+    Loader()->GetSubresourceFilter()->ScheduleCosmeticFiltering(
+        *this, SubresourceFilter::CosmeticFilteringMilestone::kDomContentLoaded);
+  }
 
   // Ensure Custom Element callbacks are drained before DOMContentLoaded.
   // FIXME: Remove this ad-hoc checkpoint when DOMContentLoaded is dispatched in
