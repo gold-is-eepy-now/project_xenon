@@ -1,0 +1,27 @@
+# Copyright 2026 The Project Xenon Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/buildflag_header.gni")
+import("//build/config/xenon/xenon.gni")
+
+# Exposes Xenon's GN configuration to C++ as BUILDFLAG(...) macros.
+#
+# Usage:
+#   #include "build/config/xenon/xenon_buildflags.h"
+#   #if BUILDFLAG(XENON_PRIVACY_HARDENING)
+#   ...
+#   #endif
+#
+# Targets that consult these flags must add a dependency on
+# "//build/config/xenon:buildflags".
+buildflag_header("buildflags") {
+  header = "xenon_buildflags.h"
+  header_dir = "build/config/xenon"
+
+  flags = [
+    "IS_XENON=$is_xenon",
+    "XENON_DISABLE_GOOGLE_SERVICES=$xenon_disable_google_services",
+    "XENON_PRIVACY_HARDENING=$xenon_privacy_hardening",
+  ]
+}
