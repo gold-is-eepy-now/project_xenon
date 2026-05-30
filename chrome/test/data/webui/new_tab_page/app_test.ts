@@ -69,6 +69,13 @@ suite('NewTabPageAppTest', () => {
       doodle: null,
     });
     handler.setPromiseResolveFor('getModulesIdNames', {data: []});
+    handler.setPromiseResolveFor('getNtpStartPageLayout', {
+      layout: {
+        dictionaryValue: {
+          storage: {widgets: {listValue: {storage: []}}},
+        },
+      },
+    });
     handler.setPromiseResolveFor('getModulesOrder', {data: []});
     windowProxy.setResultMapperFor(
         'matchMedia', (query: string) => ({
@@ -2665,6 +2672,13 @@ suite('NewTabPageAppReducedMotionTest', () => {
     handler.setResultFor('getModulesIdNames', Promise.resolve({data: []}));
     handler.setResultFor('getModulesEligibleForRemoval', Promise.resolve({
       moduleIds: [],
+    }));
+    handler.setResultFor('getNtpStartPageLayout', Promise.resolve({
+      layout: {
+        dictionaryValue: {
+          storage: {widgets: {listValue: {storage: []}}},
+        },
+      },
     }));
     handler.setResultFor('getModulesOrder', Promise.resolve({moduleIds: []}));
     backgroundManager = installMock(

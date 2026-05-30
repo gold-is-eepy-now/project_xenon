@@ -7,6 +7,7 @@ import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import './module_wrapper.js';
 
 import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
+import type {Value} from 'chrome://resources/mojo/mojo/public/mojom/base/values.mojom-webui.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
@@ -45,6 +46,53 @@ const CONTAINER_GAP_WIDTH = 8;
 const MARGIN_WIDTH = 48;
 
 const METRIC_NAME_MODULE_DISABLED = 'NewTabPage.Modules.Disabled';
+
+function getStringValue(value: Value|undefined): string|undefined {
+  return value?.stringValue;
+}
+
+function getBoolValue(value: Value|undefined): boolean|undefined {
+  return value?.boolValue;
+}
+
+function getEnabledModuleIdsFromLayout(
+    layout: Value, availableModuleIds: Set<string>): string[] {
+  const widgets = layout.dictionaryValue?.storage['widgets']?.listValue?.storage;
+  if (!widgets) {
+    return [];
+  }
+
+  const enabledWidgets: Array<{id: string, order: number}> = [];
+  widgets.forEach((widget, index) => {
+    const dict = widget.dictionaryValue?.storage;
+    if (!dict) {
+      return;
+    }
+
+    const id = getStringValue(dict['id']);
+    if (!id || !availableModuleIds.has(id)) {
+      return;
+    }
+
+    const zone = getStringValue(dict['zone']);
+    if (zone && zone !== 'modules') {
+      return;
+    }
+
+    if (getBoolValue(dict['visible']) === false ||
+        getBoolValue(dict['enabled']) === false) {
+      return;
+    }
+
+    enabledWidgets.push({
+      id,
+      order: dict['order']?.intValue ?? index,
+    });
+  });
+
+  enabledWidgets.sort((a, b) => a.order - b.order);
+  return enabledWidgets.map(widget => widget.id);
+}
 
 export type UndoActionEvent =
     CustomEvent<{message: string, restoreCallback?: () => void}>;
@@ -268,15 +316,24 @@ export class ModulesElement extends CrLitElement {
    * and is called only when the container is empty.
    */
   private async loadModules_(): Promise<void> {
-    const [modulesIdNamesResponse, modulesEligibleForRemovalResponse] =
-        await Promise.all([
-          this.pageHandler_.getModulesIdNames(),
-          this.pageHandler_.getModulesEligibleForRemoval(),
-        ]);
+    const [
+      modulesIdNamesResponse,
+      modulesEligibleForRemovalResponse,
+      ntpStartPageLayoutResponse,
+    ] = await Promise.all([
+      this.pageHandler_.getModulesIdNames(),
+      this.pageHandler_.getModulesEligibleForRemoval(),
+      this.pageHandler_.getNtpStartPageLayout(),
+    ]);
     const modulesIdNames = modulesIdNamesResponse.data;
+    const availableModuleIds = new Set(
+        modulesIdNames.map((moduleIdName: ModuleIdName) => moduleIdName.id));
+    const enabledLayoutModuleIds = getEnabledModuleIdsFromLayout(
+        ntpStartPageLayoutResponse.layout, availableModuleIds);
+    this.availableModulesIds_ = availableModuleIds;
     const modules =
         await ModuleRegistry.getInstance().initializeModulesHavingIds(
-            modulesIdNames.map((m: ModuleIdName) => m.id),
+            enabledLayoutModuleIds,
             loadTimeData.getInteger('modulesLoadTimeout'));
 
     // We only want to remove modules that are both eligible for auto removal

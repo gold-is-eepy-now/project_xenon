@@ -70,6 +70,13 @@ suite('NewTabPageAppFocusTest', () => {
       doodle: null,
     });
     handler.setPromiseResolveFor('getModulesIdNames', {data: []});
+    handler.setPromiseResolveFor('getNtpStartPageLayout', {
+      layout: {
+        dictionaryValue: {
+          storage: {widgets: {listValue: {storage: []}}},
+        },
+      },
+    });
     installMock(
         CustomizeButtonsHandlerRemote,
         mock => CustomizeButtonsProxy.setInstance(

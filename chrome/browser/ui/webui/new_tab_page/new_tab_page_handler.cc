@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -128,6 +129,117 @@ constexpr char kDismissInteraction[] = "dismiss";
 constexpr char kIgnoreInteraction[] = "ignore";
 #endif
 constexpr char kUseInteraction[] = "use";
+
+constexpr char kNtpStartPageLayoutVersionKey[] = "version";
+constexpr char kNtpStartPageLayoutWidgetsKey[] = "widgets";
+constexpr char kNtpStartPageLayoutWidgetIdKey[] = "id";
+constexpr char kNtpStartPageLayoutWidgetZoneKey[] = "zone";
+constexpr char kNtpStartPageLayoutWidgetOrderKey[] = "order";
+constexpr char kNtpStartPageLayoutWidgetSizeKey[] = "size";
+constexpr char kNtpStartPageLayoutWidgetVisibleKey[] = "visible";
+constexpr char kNtpStartPageLayoutWidgetSettingsKey[] = "settings";
+constexpr char kNtpStartPageLayoutModulesZone[] = "modules";
+constexpr char kNtpStartPageLayoutDefaultSize[] = "default";
+
+std::vector<std::string> GetMigratedNtpStartPageModuleOrder(
+    const PrefService* pref_service,
+    const std::vector<ntp::ModuleIdDetail>* module_id_details) {
+  std::vector<std::string> module_ids;
+  const auto append_if_new = [&module_ids](const std::string& id) {
+    if (!std::ranges::contains(module_ids, id)) {
+      module_ids.push_back(id);
+    }
+  };
+
+  const auto& module_ids_value = pref_service->GetList(prefs::kNtpModulesOrder);
+  for (const auto& id : module_ids_value) {
+    append_if_new(id.GetString());
+  }
+
+  for (const auto& id : ntp_features::GetModulesOrder()) {
+    append_if_new(id);
+  }
+
+  for (const auto& id : ntp_modules::kOrderedModuleIds) {
+    append_if_new(id);
+  }
+
+  for (const auto& module_id_detail : *module_id_details) {
+    append_if_new(module_id_detail.id_);
+  }
+
+  return module_ids;
+}
+
+base::Value::Dict BuildNtpStartPageLayoutFromPrefs(
+    const PrefService* pref_service,
+    const std::vector<ntp::ModuleIdDetail>* module_id_details) {
+  std::set<std::string> available_module_ids;
+  for (const auto& module_id_detail : *module_id_details) {
+    available_module_ids.insert(module_id_detail.id_);
+  }
+
+  std::set<std::string> invisible_module_ids;
+  if (!pref_service->GetBoolean(prefs::kNtpModulesVisible)) {
+    invisible_module_ids = available_module_ids;
+  } else if (!pref_service->IsManagedPreference(prefs::kNtpModulesVisible)) {
+    for (const auto& id : pref_service->GetList(prefs::kNtpDisabledModules)) {
+      invisible_module_ids.insert(id.GetString());
+    }
+    for (const auto& id : pref_service->GetList(prefs::kNtpHiddenModules)) {
+      invisible_module_ids.insert(id.GetString());
+    }
+  }
+
+  base::Value::List widgets;
+  int order = 0;
+  for (const auto& id :
+       GetMigratedNtpStartPageModuleOrder(pref_service, module_id_details)) {
+    if (!available_module_ids.contains(id)) {
+      continue;
+    }
+
+    base::Value::Dict widget;
+    widget.Set(kNtpStartPageLayoutWidgetIdKey, id);
+    widget.Set(kNtpStartPageLayoutWidgetZoneKey,
+               kNtpStartPageLayoutModulesZone);
+    widget.Set(kNtpStartPageLayoutWidgetOrderKey, order++);
+    widget.Set(kNtpStartPageLayoutWidgetSizeKey,
+               kNtpStartPageLayoutDefaultSize);
+    widget.Set(kNtpStartPageLayoutWidgetVisibleKey,
+               !invisible_module_ids.contains(id));
+    widget.Set(kNtpStartPageLayoutWidgetSettingsKey, base::Value::Dict());
+    widgets.Append(std::move(widget));
+  }
+
+  base::Value::Dict layout;
+  layout.Set(kNtpStartPageLayoutVersionKey, 1);
+  layout.Set(kNtpStartPageLayoutWidgetsKey, std::move(widgets));
+  return layout;
+}
+
+base::Value::Dict GetOrMigrateNtpStartPageLayout(
+    PrefService* pref_service,
+    const std::vector<ntp::ModuleIdDetail>* module_id_details) {
+  const base::Value::Dict& current_layout =
+      pref_service->GetDict(prefs::kNtpStartPageLayout);
+  if (current_layout.FindList(kNtpStartPageLayoutWidgetsKey)) {
+    return current_layout.Clone();
+  }
+
+  base::Value::Dict migrated_layout =
+      BuildNtpStartPageLayoutFromPrefs(pref_service, module_id_details);
+  pref_service->SetDict(prefs::kNtpStartPageLayout, migrated_layout.Clone());
+  return migrated_layout;
+}
+
+void SyncNtpStartPageLayoutFromLegacyPrefs(
+    PrefService* pref_service,
+    const std::vector<ntp::ModuleIdDetail>* module_id_details) {
+  pref_service->SetDict(
+      prefs::kNtpStartPageLayout,
+      BuildNtpStartPageLayoutFromPrefs(pref_service, module_id_details));
+}
 
 // TODO(b/502297163): Implement for Android.
 #if !BUILDFLAG(IS_ANDROID)
@@ -646,6 +758,7 @@ void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterListPref(prefs::kNtpHiddenModules);
   registry->RegisterListPref(prefs::kNtpModulesOrder);
   registry->RegisterBooleanPref(prefs::kNtpModulesVisible, true);
+  registry->RegisterDictionaryPref(prefs::kNtpStartPageLayout);
   registry->RegisterBooleanPref(prefs::kNtpToolChipsVisible, true);
   registry->RegisterIntegerPref(prefs::kNtpCustomizeChromeButtonOpenCount, 0);
   registry->RegisterDictionaryPref(prefs::kNtpModulesInteractedCountDict);
@@ -743,6 +856,8 @@ void NewTabPageHandler::OnRestoreModule(const std::string& module_id) {
 void NewTabPageHandler::SetModulesVisible(bool visible) {
   DisableModuleAutoRemoval(profile_, ntp_modules::kAllModulesId);
   profile_->GetPrefs()->SetBoolean(prefs::kNtpModulesVisible, visible);
+  SyncNtpStartPageLayoutFromLegacyPrefs(profile_->GetPrefs(),
+                                        module_id_details_);
 }
 
 void NewTabPageHandler::SetModulesDisabled(
@@ -766,6 +881,8 @@ void NewTabPageHandler::SetModulesDisabled(
   }
 
   DisableModuleListAutoRemoval(profile_, module_ids);
+  SyncNtpStartPageLayoutFromLegacyPrefs(profile_->GetPrefs(),
+                                        module_id_details_);
 
   // We're not recording a user interaction if the modules were disabled due to
   // feature optimization auto removal.
@@ -936,6 +1053,8 @@ void NewTabPageHandler::SetModulesOrder(
   }
   profile_->GetPrefs()->SetList(prefs::kNtpModulesOrder,
                                 std::move(module_ids_value));
+  SyncNtpStartPageLayoutFromLegacyPrefs(profile_->GetPrefs(),
+                                        module_id_details_);
 }
 
 void NewTabPageHandler::GetModulesOrder(GetModulesOrderCallback callback) {
@@ -966,6 +1085,25 @@ void NewTabPageHandler::GetModulesOrder(GetModulesOrderCallback callback) {
                        });
 
   std::move(callback).Run(std::move(module_ids));
+}
+
+void NewTabPageHandler::GetNtpStartPageLayout(
+    GetNtpStartPageLayoutCallback callback) {
+  std::move(callback).Run(base::Value(GetOrMigrateNtpStartPageLayout(
+      profile_->GetPrefs(), module_id_details_)));
+}
+
+void NewTabPageHandler::SetNtpStartPageLayout(
+    base::Value layout,
+    SetNtpStartPageLayoutCallback callback) {
+  if (!layout.is_dict()) {
+    receiver_.ReportBadMessage("NTP start page layout must be a dictionary.");
+    return;
+  }
+
+  profile_->GetPrefs()->SetDict(prefs::kNtpStartPageLayout,
+                                std::move(layout).TakeDict());
+  std::move(callback).Run();
 }
 
 void NewTabPageHandler::UpdateModulesLoadable() {
