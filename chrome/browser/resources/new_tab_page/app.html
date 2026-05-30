@@ -126,6 +126,12 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
     </cr-toast>
   ` : ''}
   ${this.lazyRender_ ? html`
+    <cr-button id="startPageEditorButton" @click="${this.onStartPageEditorClick_}">
+      ${this.showStartPageEditor_ ? 'Close Start Page Editor' : 'Edit Start Page'}
+    </cr-button>
+    ${this.showStartPageEditor_ ? html`
+      <ntp-start-page-editor></ntp-start-page-editor>
+    ` : ''}
     ${this.shortcutsEnabled_ ? html`
       <cr-most-visited id="mostVisited" .theme="${this.theme_?.mostVisited || null}"
           single-row reflow-on-overflow

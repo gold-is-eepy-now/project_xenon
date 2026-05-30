@@ -24,6 +24,7 @@ all_ts_files = [
                  "ntp_searchbox.html.ts",
                  "ntp_searchbox.ts",
                  "ntp_searchbox_contextual_entrypoint.html.ts",
+                 "start_page_editor.html.ts",
                  "transparency.ts",
                  "utils.ts",
                  "window_proxy.ts",
@@ -38,6 +39,7 @@ all_web_component_files = [
                             "lens_upload_dialog.ts",
                             "logo.ts",
                             "middle_slot_promo.ts",
+                            "start_page_editor.ts",
                             "voice_search_overlay.ts",
                           ] + modules_web_component_files
 
@@ -52,6 +54,7 @@ all_css_files =
       "middle_slot_promo.css",
       "ntp_composebox.css",
       "ntp_searchbox.css",
+      "start_page_editor.css",
       "voice_search_overlay.css",
     ] + modules_css_files + ntp_promo_css_files + action_chips_css_files
 

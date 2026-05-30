@@ -7,6 +7,7 @@ import './iframe.js';
 import './logo.js';
 import './ntp_composebox.js';
 import './ntp_searchbox.js';
+import './start_page_editor.js';
 import '/strings.m.js';
 import 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
@@ -352,10 +353,12 @@ export class AppElement extends AppElementBase {
 
       energyEffectEnabled_: {type: Boolean, reflect: true},
       energyEffectAnimationEnabled_: {type: Boolean, reflect: true},
+      showStartPageEditor_: {type: Boolean},
     };
   }
 
   accessor hasVoiceSearchError = false;
+  protected accessor showStartPageEditor_: boolean = false;
   accessor realboxCanShowSecondarySide: boolean = false;
   accessor realboxHadSecondarySide: boolean = false;
   accessor composeButtonEnabled: boolean =
@@ -528,6 +531,10 @@ export class AppElement extends AppElementBase {
         /*value=*/ Math.floor(window.innerWidth));
 
     ColorChangeUpdater.forDocument().start();
+  }
+
+  protected onStartPageEditorClick_() {
+    this.showStartPageEditor_ = !this.showStartPageEditor_;
   }
 
   override connectedCallback() {

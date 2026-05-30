@@ -169,6 +169,13 @@ class NewTabPageHandler
   void OnPromoLinkClicked() override;
   void IncrementComposeButtonShownCount() override;
   void MaybeTriggerAutomaticCustomizeChromePromo() override;
+  void GetStartPageLayout(GetStartPageLayoutCallback callback) override;
+  void SaveStartPageLayout(new_tab_page::mojom::StartPageLayoutPtr layout,
+                           SaveStartPageLayoutCallback callback) override;
+  void ResetStartPageLayout(ResetStartPageLayoutCallback callback) override;
+  void ExportStartPageLayout(ExportStartPageLayoutCallback callback) override;
+  void ImportStartPageLayout(const std::string& json,
+                             ImportStartPageLayoutCallback callback) override;
 
  private:
   // ui::NativeThemeObserver:

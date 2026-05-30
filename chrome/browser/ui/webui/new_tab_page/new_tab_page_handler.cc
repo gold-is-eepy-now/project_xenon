@@ -24,6 +24,7 @@
 #include "base/i18n/rtl.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_string_value_serializer.h"
+#include "base/json/json_writer.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -92,6 +93,7 @@
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
@@ -128,6 +130,278 @@ constexpr char kDismissInteraction[] = "dismiss";
 constexpr char kIgnoreInteraction[] = "ignore";
 #endif
 constexpr char kUseInteraction[] = "use";
+
+constexpr uint32_t kStartPageLayoutVersion = 1;
+constexpr uint32_t kStartPageLayoutColumns = 12;
+constexpr uint32_t kStartPageMaxWidgets = 64;
+constexpr uint32_t kStartPageMaxLinks = 24;
+constexpr size_t kStartPageMaxIdLength = 64;
+constexpr size_t kStartPageMaxTitleLength = 120;
+constexpr size_t kStartPageMaxTextLength = 4000;
+constexpr size_t kStartPageMaxSourceIdLength = 256;
+constexpr size_t kStartPageMaxImportBytes = 256 * 1024;
+
+std::string SanitizeStartPageString(std::string_view input, size_t max_length) {
+  std::string output;
+  output.reserve(std::min(input.size(), max_length));
+  for (char c : input) {
+    if (output.size() >= max_length) {
+      break;
+    }
+    if (c == '\0') {
+      continue;
+    }
+    output.push_back(c);
+  }
+  base::TrimWhitespaceASCII(output, base::TRIM_ALL, &output);
+  return output;
+}
+
+uint32_t ClampStartPageGridValue(uint32_t value, uint32_t min, uint32_t max) {
+  return std::max(min, std::min(value, max));
+}
+
+const char* StartPageWidgetTypeToString(
+    new_tab_page::mojom::StartPageWidgetType type) {
+  switch (type) {
+    case new_tab_page::mojom::StartPageWidgetType::kSearchBox:
+      return "search_box";
+    case new_tab_page::mojom::StartPageWidgetType::kCustomLinkGroup:
+      return "custom_link_group";
+    case new_tab_page::mojom::StartPageWidgetType::kBookmarksFolder:
+      return "bookmarks_folder";
+    case new_tab_page::mojom::StartPageWidgetType::kLocalNote:
+      return "local_note";
+    case new_tab_page::mojom::StartPageWidgetType::kClockWeather:
+      return "clock_weather";
+    case new_tab_page::mojom::StartPageWidgetType::kBlankSpacer:
+      return "blank_spacer";
+    case new_tab_page::mojom::StartPageWidgetType::kMostVisited:
+      return "most_visited";
+    case new_tab_page::mojom::StartPageWidgetType::kModules:
+      return "modules";
+    case new_tab_page::mojom::StartPageWidgetType::kTextCard:
+      return "text_card";
+  }
+  return "unknown";
+}
+
+std::optional<new_tab_page::mojom::StartPageWidgetType>
+StartPageWidgetTypeFromString(std::string_view type) {
+  if (type == "search_box") {
+    return new_tab_page::mojom::StartPageWidgetType::kSearchBox;
+  }
+  if (type == "custom_link_group") {
+    return new_tab_page::mojom::StartPageWidgetType::kCustomLinkGroup;
+  }
+  if (type == "bookmarks_folder") {
+    return new_tab_page::mojom::StartPageWidgetType::kBookmarksFolder;
+  }
+  if (type == "local_note") {
+    return new_tab_page::mojom::StartPageWidgetType::kLocalNote;
+  }
+  if (type == "clock_weather") {
+    return new_tab_page::mojom::StartPageWidgetType::kClockWeather;
+  }
+  if (type == "blank_spacer") {
+    return new_tab_page::mojom::StartPageWidgetType::kBlankSpacer;
+  }
+  if (type == "most_visited") {
+    return new_tab_page::mojom::StartPageWidgetType::kMostVisited;
+  }
+  if (type == "modules") {
+    return new_tab_page::mojom::StartPageWidgetType::kModules;
+  }
+  if (type == "text_card") {
+    return new_tab_page::mojom::StartPageWidgetType::kTextCard;
+  }
+  return std::nullopt;
+}
+
+bool IsStartPageUrlAllowed(const GURL& url) {
+  return url.is_valid() &&
+         (url.SchemeIsHTTPOrHTTPS() || url.SchemeIs(content::kChromeUIScheme));
+}
+
+new_tab_page::mojom::StartPageLayoutPtr MakeDefaultStartPageLayout() {
+  auto layout = new_tab_page::mojom::StartPageLayout::New();
+  layout->version = kStartPageLayoutVersion;
+  layout->columns = kStartPageLayoutColumns;
+  layout->clock_weather_enabled_locally = false;
+  layout->widgets.push_back(new_tab_page::mojom::StartPageWidget::New(
+      "search", new_tab_page::mojom::StartPageWidgetType::kSearchBox, 0, 0, 12,
+      2, "Search", "", "",
+      std::vector<new_tab_page::mojom::StartPageLinkPtr>()));
+  layout->widgets.push_back(new_tab_page::mojom::StartPageWidget::New(
+      "most-visited", new_tab_page::mojom::StartPageWidgetType::kMostVisited, 0,
+      2, 12, 2, "Most visited", "", "",
+      std::vector<new_tab_page::mojom::StartPageLinkPtr>()));
+  layout->widgets.push_back(new_tab_page::mojom::StartPageWidget::New(
+      "modules", new_tab_page::mojom::StartPageWidgetType::kModules, 0, 4, 12,
+      4, "Modules", "", "",
+      std::vector<new_tab_page::mojom::StartPageLinkPtr>()));
+  return layout;
+}
+
+new_tab_page::mojom::StartPageLayoutPtr SanitizeStartPageLayout(
+    new_tab_page::mojom::StartPageLayoutPtr layout) {
+  if (!layout) {
+    return MakeDefaultStartPageLayout();
+  }
+  auto sanitized = new_tab_page::mojom::StartPageLayout::New();
+  sanitized->version = kStartPageLayoutVersion;
+  sanitized->columns = kStartPageLayoutColumns;
+  sanitized->clock_weather_enabled_locally =
+      layout->clock_weather_enabled_locally;
+
+  const size_t widget_count = std::min(
+      layout->widgets.size(), static_cast<size_t>(kStartPageMaxWidgets));
+  for (size_t i = 0; i < widget_count; ++i) {
+    const auto& widget = layout->widgets[i];
+    if (!widget) {
+      continue;
+    }
+    if (widget->type ==
+            new_tab_page::mojom::StartPageWidgetType::kClockWeather &&
+        !layout->clock_weather_enabled_locally) {
+      continue;
+    }
+    auto sanitized_widget = new_tab_page::mojom::StartPageWidget::New();
+    sanitized_widget->id =
+        SanitizeStartPageString(widget->id, kStartPageMaxIdLength);
+    if (sanitized_widget->id.empty()) {
+      sanitized_widget->id = base::StringPrintf("widget-%zu", i + 1);
+    }
+    sanitized_widget->type = widget->type;
+    sanitized_widget->column =
+        ClampStartPageGridValue(widget->column, 0, kStartPageLayoutColumns - 1);
+    sanitized_widget->row = ClampStartPageGridValue(widget->row, 0, 99);
+    sanitized_widget->width =
+        ClampStartPageGridValue(widget->width, 1, kStartPageLayoutColumns);
+    sanitized_widget->height = ClampStartPageGridValue(widget->height, 1, 12);
+    if (sanitized_widget->column + sanitized_widget->width >
+        kStartPageLayoutColumns) {
+      sanitized_widget->column =
+          kStartPageLayoutColumns - sanitized_widget->width;
+    }
+    sanitized_widget->title =
+        SanitizeStartPageString(widget->title, kStartPageMaxTitleLength);
+    sanitized_widget->text =
+        SanitizeStartPageString(widget->text, kStartPageMaxTextLength);
+    sanitized_widget->source_id =
+        SanitizeStartPageString(widget->source_id, kStartPageMaxSourceIdLength);
+
+    const size_t link_count =
+        std::min(widget->links.size(), static_cast<size_t>(kStartPageMaxLinks));
+    for (size_t j = 0; j < link_count; ++j) {
+      const auto& link = widget->links[j];
+      if (!link || !IsStartPageUrlAllowed(link->url)) {
+        continue;
+      }
+      sanitized_widget->links.push_back(new_tab_page::mojom::StartPageLink::New(
+          SanitizeStartPageString(link->label, kStartPageMaxTitleLength),
+          link->url));
+    }
+    sanitized->widgets.push_back(std::move(sanitized_widget));
+  }
+  return sanitized;
+}
+
+base::Value::Dict StartPageLayoutToValue(
+    const new_tab_page::mojom::StartPageLayout& layout) {
+  base::Value::Dict value;
+  value.Set("version", static_cast<int>(layout.version));
+  value.Set("columns", static_cast<int>(layout.columns));
+  value.Set("clockWeatherEnabledLocally", layout.clock_weather_enabled_locally);
+  base::Value::List widgets;
+  for (const auto& widget : layout.widgets) {
+    if (!widget) {
+      continue;
+    }
+    base::Value::Dict widget_value;
+    widget_value.Set("id", widget->id);
+    widget_value.Set("type", StartPageWidgetTypeToString(widget->type));
+    widget_value.Set("column", static_cast<int>(widget->column));
+    widget_value.Set("row", static_cast<int>(widget->row));
+    widget_value.Set("width", static_cast<int>(widget->width));
+    widget_value.Set("height", static_cast<int>(widget->height));
+    widget_value.Set("title", widget->title);
+    widget_value.Set("text", widget->text);
+    widget_value.Set("sourceId", widget->source_id);
+    base::Value::List links;
+    for (const auto& link : widget->links) {
+      if (!link) {
+        continue;
+      }
+      base::Value::Dict link_value;
+      link_value.Set("label", link->label);
+      link_value.Set("url", link->url.spec());
+      links.Append(std::move(link_value));
+    }
+    widget_value.Set("links", std::move(links));
+    widgets.Append(std::move(widget_value));
+  }
+  value.Set("widgets", std::move(widgets));
+  return value;
+}
+
+new_tab_page::mojom::StartPageLayoutPtr StartPageLayoutFromValue(
+    const base::Value::Dict& value) {
+  auto layout = new_tab_page::mojom::StartPageLayout::New();
+  layout->version = value.FindInt("version").value_or(kStartPageLayoutVersion);
+  layout->columns = value.FindInt("columns").value_or(kStartPageLayoutColumns);
+  layout->clock_weather_enabled_locally =
+      value.FindBool("clockWeatherEnabledLocally").value_or(false);
+  const base::Value::List* widgets = value.FindList("widgets");
+  if (!widgets) {
+    return SanitizeStartPageLayout(std::move(layout));
+  }
+  for (const auto& item : *widgets) {
+    const base::Value::Dict* widget_value = item.GetIfDict();
+    if (!widget_value) {
+      continue;
+    }
+    const std::string* type_string = widget_value->FindString("type");
+    if (!type_string) {
+      continue;
+    }
+    auto type = StartPageWidgetTypeFromString(*type_string);
+    if (!type) {
+      continue;
+    }
+    auto widget = new_tab_page::mojom::StartPageWidget::New();
+    const std::string* id = widget_value->FindString("id");
+    widget->id = id ? *id : std::string();
+    widget->type = *type;
+    widget->column = widget_value->FindInt("column").value_or(0);
+    widget->row = widget_value->FindInt("row").value_or(0);
+    widget->width = widget_value->FindInt("width").value_or(1);
+    widget->height = widget_value->FindInt("height").value_or(1);
+    const std::string* title = widget_value->FindString("title");
+    widget->title = title ? *title : std::string();
+    const std::string* text = widget_value->FindString("text");
+    widget->text = text ? *text : std::string();
+    const std::string* source_id = widget_value->FindString("sourceId");
+    widget->source_id = source_id ? *source_id : std::string();
+    if (const base::Value::List* links = widget_value->FindList("links")) {
+      for (const auto& link_item : *links) {
+        const base::Value::Dict* link_value = link_item.GetIfDict();
+        if (!link_value) {
+          continue;
+        }
+        const std::string* url = link_value->FindString("url");
+        if (!url) {
+          continue;
+        }
+        const std::string* label = link_value->FindString("label");
+        widget->links.push_back(new_tab_page::mojom::StartPageLink::New(
+            label ? *label : std::string(), GURL(*url)));
+      }
+    }
+    layout->widgets.push_back(std::move(widget));
+  }
+  return SanitizeStartPageLayout(std::move(layout));
+}
 
 // TODO(b/502297163): Implement for Android.
 #if !BUILDFLAG(IS_ANDROID)
@@ -645,6 +919,7 @@ void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterListPref(prefs::kNtpDisabledModules);
   registry->RegisterListPref(prefs::kNtpHiddenModules);
   registry->RegisterListPref(prefs::kNtpModulesOrder);
+  registry->RegisterDictionaryPref(prefs::kNtpStartPageLayout);
   registry->RegisterBooleanPref(prefs::kNtpModulesVisible, true);
   registry->RegisterBooleanPref(prefs::kNtpToolChipsVisible, true);
   registry->RegisterIntegerPref(prefs::kNtpCustomizeChromeButtonOpenCount, 0);
@@ -661,6 +936,66 @@ void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
 #if !BUILDFLAG(IS_ANDROID)
   registry->RegisterBooleanPref(prefs::kNtpCustomizeChromeIPHAutoOpened, false);
 #endif  // !BUILDFLAG(IS_ANDROID)
+}
+
+void NewTabPageHandler::GetStartPageLayout(
+    GetStartPageLayoutCallback callback) {
+  const base::Value::Dict& pref =
+      profile_->GetPrefs()->GetDict(prefs::kNtpStartPageLayout);
+  if (pref.empty()) {
+    std::move(callback).Run(MakeDefaultStartPageLayout());
+    return;
+  }
+  std::move(callback).Run(StartPageLayoutFromValue(pref));
+}
+
+void NewTabPageHandler::SaveStartPageLayout(
+    new_tab_page::mojom::StartPageLayoutPtr layout,
+    SaveStartPageLayoutCallback callback) {
+  auto sanitized_layout = SanitizeStartPageLayout(std::move(layout));
+  profile_->GetPrefs()->SetDict(prefs::kNtpStartPageLayout,
+                                StartPageLayoutToValue(*sanitized_layout));
+  std::move(callback).Run(/*success=*/true, std::string(),
+                          std::move(sanitized_layout));
+}
+
+void NewTabPageHandler::ResetStartPageLayout(
+    ResetStartPageLayoutCallback callback) {
+  profile_->GetPrefs()->ClearPref(prefs::kNtpStartPageLayout);
+  std::move(callback).Run(MakeDefaultStartPageLayout());
+}
+
+void NewTabPageHandler::ExportStartPageLayout(
+    ExportStartPageLayoutCallback callback) {
+  const base::Value::Dict& pref =
+      profile_->GetPrefs()->GetDict(prefs::kNtpStartPageLayout);
+  auto layout = pref.empty() ? MakeDefaultStartPageLayout()
+                             : StartPageLayoutFromValue(pref);
+  std::optional<std::string> json = base::WriteJsonWithOptions(
+      StartPageLayoutToValue(*layout), base::JSONWriter::OPTIONS_PRETTY_PRINT);
+  std::move(callback).Run(json.value_or("{}"));
+}
+
+void NewTabPageHandler::ImportStartPageLayout(
+    const std::string& json,
+    ImportStartPageLayoutCallback callback) {
+  if (json.size() > kStartPageMaxImportBytes) {
+    std::move(callback).Run(/*success=*/false, "Layout import is too large.",
+                            MakeDefaultStartPageLayout());
+    return;
+  }
+  std::optional<base::Value> parsed = base::JSONReader::Read(json);
+  if (!parsed || !parsed->is_dict()) {
+    std::move(callback).Run(/*success=*/false,
+                            "Layout import is not valid JSON.",
+                            MakeDefaultStartPageLayout());
+    return;
+  }
+  auto sanitized_layout = StartPageLayoutFromValue(parsed->GetDict());
+  profile_->GetPrefs()->SetDict(prefs::kNtpStartPageLayout,
+                                StartPageLayoutToValue(*sanitized_layout));
+  std::move(callback).Run(/*success=*/true, std::string(),
+                          std::move(sanitized_layout));
 }
 
 void NewTabPageHandler::SetMostVisitedSettings(ntp_tiles::TileType type,

@@ -1,0 +1,147 @@
+/* Copyright 2026 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #scheme=relative
+ * #css_wrapper_metadata_end */
+
+#editor {
+  background: color-mix(in srgb, var(--color-new-tab-page-background) 92%, white);
+  border: 1px solid var(--color-new-tab-page-border);
+  border-radius: 20px;
+  box-shadow: var(--ntp-menu-shadow);
+  box-sizing: border-box;
+  color: var(--color-new-tab-page-primary-foreground);
+  margin: 24px auto;
+  max-width: 960px;
+  padding: 20px;
+  width: calc(100vw - 48px);
+}
+
+header,
+.widgetHeader,
+.resizeHandles,
+#actions,
+#palette {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+header {
+  justify-content: space-between;
+}
+
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+header p,
+.widgetHeader p,
+#privacyNote,
+#status,
+#importExportLabel {
+  color: var(--color-new-tab-page-secondary-foreground);
+  font-size: 0.875rem;
+}
+
+#privacyNote {
+  background: var(--color-new-tab-page-module-item-background);
+  border-radius: 12px;
+  margin-block: 16px;
+  padding: 12px;
+}
+
+#clockWeatherToggle {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#palette {
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+#grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.widget {
+  background: var(--color-new-tab-page-module-background);
+  border: 1px solid var(--color-new-tab-page-border);
+  border-radius: 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.widget:focus-within,
+.widget:hover {
+  outline: 2px solid var(--color-new-tab-page-focus-ring);
+}
+
+.widgetHeader {
+  justify-content: space-between;
+}
+
+.dragHandle {
+  cursor: grab;
+  font-weight: 700;
+  letter-spacing: -2px;
+}
+
+.resizeHandles {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.resizeHandles button {
+  border-radius: 50%;
+  height: 28px;
+  width: 28px;
+}
+
+#importExportLabel {
+  display: block;
+  margin-top: 16px;
+}
+
+.field {
+  color: var(--color-new-tab-page-secondary-foreground);
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 12px;
+}
+
+.field input,
+.field textarea,
+textarea {
+  background: var(--color-new-tab-page-background);
+  border: 1px solid var(--color-new-tab-page-border);
+  border-radius: 12px;
+  box-sizing: border-box;
+  color: var(--color-new-tab-page-primary-foreground);
+  display: block;
+  min-height: 36px;
+  padding: 12px;
+  width: 100%;
+}
+
+#importExportLabel textarea {
+  min-height: 120px;
+}
+
+#status {
+  min-height: 20px;
+  padding-top: 8px;
+}
