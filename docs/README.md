@@ -61,6 +61,8 @@ used when committed.
 *   [Linux Build Instructions](linux/build_instructions.md) - Linux
 *   [Mac Build Instructions](mac_build_instructions.md) - MacOS
 *   [Windows Build Instructions](windows_build_instructions.md) - Windows
+*   [FreeBSD Build Instructions](freebsd/build_instructions.md) - FreeBSD
+    (community-supported)
 *   [Android Build Instructions](android_build_instructions.md) - Android target
     (on a Linux host)
 *   [Cast Build Instructions](linux/cast_build_instructions.md) - Cast target
