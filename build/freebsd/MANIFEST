@@ -1,0 +1,18 @@
+# Provenance for the vendored FreeBSD patch snapshot in build/freebsd/patches/.
+# Refresh with: sh build/freebsd/fetch_port_patches.sh
+# Keep PORT_COMMIT here in sync with the default in fetch_port_patches.sh.
+
+source_repo        = https://github.com/freebsd/freebsd-ports
+source_path        = www/chromium/files
+port_commit        = 8bb66f1b8cc8ef9a27b717284ddd6d7db5632a15
+port_commit_date   = 2026-05-20
+port_chromium_ver  = 148.0.7778.178
+xenon_chromium_ver = 150.0.7866.0
+patch_count        = 1565
+fetched_on         = 2026-05-30
+
+# NOTE: The vendored patches target Chromium 148.0.7778.178, while this tree is
+# at 150.0.7866.0. They are a reference snapshot and will NOT all apply cleanly
+# without a rebase. See README.md for the rebase/apply plan. The GN OS-detection
+# change (build/config/BUILDCONFIG.gn) is independent of these patches and is in
+# effect immediately.
