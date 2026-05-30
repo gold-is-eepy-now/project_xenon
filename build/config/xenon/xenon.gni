@@ -1,0 +1,83 @@
+# Copyright 2026 The Project Xenon Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Central configuration surface for Project Xenon.
+#
+# Xenon is a Chromium fork that aims to be faster, safer, and more
+# customizable than upstream. To keep those changes discoverable and easy to
+# audit (instead of scattered across hundreds of edits), all Xenon-specific
+# build knobs live here as GN `declare_args()`. Other BUILD.gn / *.gni files
+# import this file and branch on these args.
+#
+# IMPORTANT: This file only *declares* the knobs and their defaults. Wiring a
+# knob into the build (e.g. emitting a buildflag, adding compiler flags, or
+# gating C++ code) is done incrementally in follow-up changes, each verified
+# against a real build. See //docs/xenon/roadmap.md for the plan and status.
+
+declare_args() {
+  # Master switch. When false, Xenon behaves as close to stock Chromium as
+  # possible (useful for bisecting regressions against upstream).
+  is_xenon = true
+
+  # Human-readable product name used for branding-related substitutions.
+  xenon_product_name = "Xenon"
+}
+
+# ----------------------------------------------------------------------------
+# Pillar 1: Performance
+#
+# Inspired by the approach taken by performance-focused forks (e.g. Thorium):
+# trade a little binary size for speed by raising optimization levels and
+# targeting newer CPU instruction set extensions. Defaults here are
+# conservative (match upstream) so nothing breaks until each knob is wired and
+# verified.
+# ----------------------------------------------------------------------------
+declare_args() {
+  # Raise optimization from -O2 to -O3 for official builds.
+  xenon_full_optimization = false
+
+  # x86-64 SIMD baseline to target. One of: "sse2" (upstream baseline),
+  # "sse3", "sse4", "avx", "avx2". Higher levels are faster but require newer
+  # CPUs, so distributors should ship an appropriate baseline (or multiple).
+  xenon_simd_level = "sse2"
+
+  # Enable AES-NI hardware crypto where available (helps TLS/cert paths).
+  xenon_use_aes_ni = false
+}
+
+# ----------------------------------------------------------------------------
+# Pillar 2: Safety / privacy
+#
+# Inspired by ungoogled-chromium: reduce dependence on remote (Google) web
+# services and tighten privacy defaults. Each of these maps to a concrete set
+# of upstream call sites that must be gated; see the roadmap for the patch
+# breakdown. Defaults are `false` so the browser is unchanged until a knob is
+# implemented and tested.
+# ----------------------------------------------------------------------------
+declare_args() {
+  # Strip/neutralize integration with Google web services (safe browsing
+  # update pings, RLZ, domain reliability, GCM, field trials phone-home, etc).
+  xenon_disable_google_services = false
+
+  # Harden default privacy settings (e.g. disable third-party cookies by
+  # default, reduce passive fingerprinting surface).
+  xenon_privacy_hardening = false
+}
+
+# ----------------------------------------------------------------------------
+# Pillar 3: Customization
+#
+# Surfaces that let users tailor the browser without recompiling.
+# ----------------------------------------------------------------------------
+declare_args() {
+  # Build the Xenon settings/customization surfaces (extra theming and
+  # behavior toggles exposed in the UI).
+  xenon_enable_customization_ui = false
+}
+
+# Basic sanity: the SIMD level must be one we know how to map to flags.
+assert(xenon_simd_level == "sse2" || xenon_simd_level == "sse3" ||
+           xenon_simd_level == "sse4" || xenon_simd_level == "avx" ||
+           xenon_simd_level == "avx2",
+       "Unknown xenon_simd_level: $xenon_simd_level")
