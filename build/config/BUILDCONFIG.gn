@@ -136,7 +136,8 @@ declare_args() {
   is_official_build = false
 
   # Set to true when compiling with the Clang compiler.
-  is_clang = current_os != "linux" ||
+  # Xenon: FreeBSD builds with the base system clang.
+  is_clang = current_os != "linux" || current_os == "freebsd" ||
              (current_cpu != "mips" && current_cpu != "mips64")
 
   # Allows the path to a custom target toolchain to be injected as a single
@@ -241,6 +242,9 @@ if (host_toolchain == "") {
     host_toolchain = "//build/toolchain/aix:$host_cpu"
   } else if (host_os == "zos") {
     host_toolchain = "//build/toolchain/zos:$host_cpu"
+  } else if (host_os == "freebsd") {
+    # Xenon: FreeBSD host support.
+    host_toolchain = "//build/toolchain/freebsd:clang_$host_cpu"
   } else {
     assert(false, "Unsupported host_os: $host_os")
   }
@@ -285,6 +289,9 @@ if (target_os == "android") {
   _default_toolchain = "//build/toolchain/aix:$target_cpu"
 } else if (target_os == "zos") {
   _default_toolchain = "//build/toolchain/zos:$target_cpu"
+} else if (target_os == "freebsd") {
+  # Xenon: FreeBSD uses the same toolchain for host and target.
+  _default_toolchain = host_toolchain
 } else if (target_os == "emscripten") {
   # Because it's too hard to remove all targets from //BUILD.gn that do not work
   # with it.
@@ -325,7 +332,11 @@ is_android = current_os == "android"
 is_chromeos = current_os == "chromeos"
 is_fuchsia = current_os == "fuchsia"
 is_ios = current_os == "ios"
-is_linux = current_os == "linux"
+# Xenon: treat FreeBSD as a Linux-like target so the large body of Linux build
+# logic is reused, while is_freebsd / is_bsd gate the BSD-specific deltas.
+is_linux = current_os == "linux" || current_os == "freebsd"
+is_freebsd = current_os == "freebsd"
+is_bsd = current_os == "freebsd"
 is_mac = current_os == "mac"
 is_wasm = current_os == "emscripten"
 is_watchos = current_os == "watchos"
