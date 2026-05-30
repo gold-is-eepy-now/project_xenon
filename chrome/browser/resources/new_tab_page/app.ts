@@ -11,6 +11,7 @@ import '/strings.m.js';
 import 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
+import 'chrome://resources/cr_elements/cr_toggle/cr_toggle.js';
 import 'chrome://resources/cr_components/composebox/composebox.js';
 import 'chrome://resources/cr_components/composebox/threads_rail.js';
 
@@ -48,8 +49,8 @@ import type {IframeElement} from './iframe.js';
 import type {LogoElement} from './logo.js';
 import {recordBoolean, recordDuration, recordEnumeration, recordLinearValue, recordLoadDuration, recordSparseValueWithPersistentHash} from './metrics_utils.js';
 import {ParentTrustedDocumentProxy} from './modules/microsoft_auth_frame_connector.js';
-import type {PageCallbackRouter, PageHandlerRemote, Theme} from './new_tab_page.mojom-webui.js';
-import {NtpBackgroundImageSource} from './new_tab_page.mojom-webui.js';
+import type {PageCallbackRouter, PageHandlerRemote, StartPagePrivacySettings, Theme} from './new_tab_page.mojom-webui.js';
+import {NtpBackgroundImageSource, StartPagePrivacySetting} from './new_tab_page.mojom-webui.js';
 import {NewTabPageProxy} from './new_tab_page_proxy.js';
 import {ShowNtpPromosResult} from './ntp_promo.mojom-webui.js';
 import type {NtpSearchboxElement} from './ntp_searchbox.js';
@@ -134,11 +135,21 @@ export const CONTEXTUAL_ENTRYPOINT_ELEMENT_ID =
 const realboxCanShowSecondarySideMediaQueryList =
     window.matchMedia('(min-width: 900px)');
 
+function shouldRecordStartPageMetrics(): boolean {
+  return loadTimeData.getBoolean('startPageUsageMetricsEnabled');
+}
+
 function recordClick(element: NtpElement) {
+  if (!shouldRecordStartPageMetrics()) {
+    return;
+  }
   recordEnumeration('NewTabPage.Click', element, NtpElement.MAX_VALUE + 1);
 }
 
 function recordCustomizeChromeOpen(element: NtpCustomizeChromeEntryPoint) {
+  if (!shouldRecordStartPageMetrics()) {
+    return;
+  }
   recordEnumeration(
       'NewTabPage.CustomizeChromeOpened', element,
       NtpCustomizeChromeEntryPoint.MAX_VALUE + 1);
@@ -153,6 +164,9 @@ function ensureLazyLoaded() {
 }
 
 function recordShowBrowserPromosResult(result: ShowNtpPromosResult) {
+  if (!shouldRecordStartPageMetrics()) {
+    return;
+  }
   recordEnumeration(
       'UserEducation.NtpPromos.ShowResult', result,
       ShowNtpPromosResult.MAX_VALUE + 1);
@@ -337,6 +351,7 @@ export class AppElement extends AppElementBase {
 
       // Whether to use ntp-composebox instead of cr-composebox.
       useNtpComposeboxFork_: {type: Boolean},
+      privacySettings_: {type: Object},
 
       // =======================================================================
       // Private properties
@@ -362,7 +377,6 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('searchboxShowComposeEntrypoint');
   accessor composeboxEnabled: boolean =
       loadTimeData.getBoolean('searchboxShowComposebox');
-
   protected accessor composeboxState_: ComposeboxState|null = null;
   protected accessor oneGoogleBarIframeOrigin_: string = OGB_IFRAME_ORIGIN;
   protected accessor oneGoogleBarIframePath_: string|undefined;
@@ -457,6 +471,7 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('energyEffectEnabled');
   protected accessor energyEffectAnimationEnabled_: boolean =
       loadTimeData.getBoolean('energyEffectAnimationEnabled');
+  protected accessor privacySettings_: StartPagePrivacySettings|null = null;
   private accessor selectedCustomizeDialogPage_: string|null = null;
   private accessor middleSlotPromoLoaded_: boolean = false;
   private accessor modulesLoadedStatus_: ModuleLoadStatus =
@@ -514,18 +529,20 @@ export class AppElement extends AppElementBase {
      */
     this.backgroundImageLoadStartEpoch_ = performance.timeOrigin;
 
-    recordLinearValue(
-        'NewTabPage.Height',
-        /*min=*/ 1,
-        /*max=*/ 1000,
-        /*buckets=*/ 200,
-        /*value=*/ Math.floor(window.innerHeight));
-    recordLinearValue(
-        'NewTabPage.Width',
-        /*min=*/ 1,
-        /*max=*/ 1920,
-        /*buckets=*/ 384,
-        /*value=*/ Math.floor(window.innerWidth));
+    if (shouldRecordStartPageMetrics()) {
+      recordLinearValue(
+          'NewTabPage.Height',
+          /*min=*/ 1,
+          /*max=*/ 1000,
+          /*buckets=*/ 200,
+          /*value=*/ Math.floor(window.innerHeight));
+      recordLinearValue(
+          'NewTabPage.Width',
+          /*min=*/ 1,
+          /*max=*/ 1920,
+          /*buckets=*/ 384,
+          /*value=*/ Math.floor(window.innerWidth));
+    }
 
     ColorChangeUpdater.forDocument().start();
   }
@@ -591,6 +608,12 @@ export class AppElement extends AppElementBase {
           this.isFooterVisible_ = visible;
         });
     this.pageHandler_.updateFooterVisibility();
+    this.pageHandler_.getStartPagePrivacySettings().then(({settings}) => {
+      this.privacySettings_ = settings;
+      loadTimeData.overrideValues({
+        startPageUsageMetricsEnabled: settings.usageMetricsEnabled,
+      });
+    });
 
     // Open Customize Chrome if there are Customize Chrome URL params.
     if (this.showCustomize_) {
@@ -625,8 +648,10 @@ export class AppElement extends AppElementBase {
       this.backgroundManager_.getBackgroundImageLoadTime().then(
           time => {
             const duration = time - this.backgroundImageLoadStartEpoch_;
-            recordDuration(
-                'NewTabPage.Images.ShownTime.BackgroundImage', duration);
+            if (shouldRecordStartPageMetrics()) {
+              recordDuration(
+                  'NewTabPage.Images.ShownTime.BackgroundImage', duration);
+            }
             if (this.shouldPrintPerformance_) {
               this.printPerformanceDatum_(
                   'background-image-load', this.backgroundImageLoadStart_,
@@ -642,7 +667,9 @@ export class AppElement extends AppElementBase {
     }
     FocusOutlineManager.forDocument(document);
     if (this.composeButtonEnabled) {
-      recordBoolean('NewTabPage.ComposeEntrypoint.Shown', true);
+      if (shouldRecordStartPageMetrics()) {
+        recordBoolean('NewTabPage.ComposeEntrypoint.Shown', true);
+      }
       this.pageHandler_.incrementComposeButtonShownCount();
     }
   }
@@ -738,7 +765,9 @@ export class AppElement extends AppElementBase {
   }
 
   override firstUpdated() {
-    this.pageHandler_.onAppRendered(WindowProxy.getInstance().now());
+    if (shouldRecordStartPageMetrics()) {
+      this.pageHandler_.onAppRendered(WindowProxy.getInstance().now());
+    }
     // Let the browser breathe and then render remaining elements.
     WindowProxy.getInstance().waitForLazyRender().then(() => {
       ensureLazyLoaded();
@@ -806,7 +835,9 @@ export class AppElement extends AppElementBase {
 
     if (changedPrivateProperties.has('showComposebox_') &&
         this.showComposebox_ && this.enableThreadsRail_) {
-      recordBoolean('NewTabPage.ThreadsRail.Shown', true);
+      if (shouldRecordStartPageMetrics()) {
+        recordBoolean('NewTabPage.ThreadsRail.Shown', true);
+      }
     }
   }
 
@@ -956,17 +987,23 @@ export class AppElement extends AppElementBase {
 
   protected onOpenVoiceSearch_() {
     this.showVoiceSearchOverlay_ = true;
-    recordVoiceAction(VoiceAction.ACTIVATE);
+    if (shouldRecordStartPageMetrics()) {
+      recordVoiceAction(VoiceAction.ACTIVATE);
+    }
   }
 
   protected onComposeVoiceSearchAction_(
       e: CustomEvent<{value: ComposeVoiceSearchAction}>) {
     switch (e.detail.value) {
       case ComposeVoiceSearchAction.ACTIVATE:
-        recordVoiceAction(VoiceAction.ACTIVATE);
+        if (shouldRecordStartPageMetrics()) {
+          recordVoiceAction(VoiceAction.ACTIVATE);
+        }
         break;
       case ComposeVoiceSearchAction.QUERY_SUBMITTED:
-        recordVoiceAction(VoiceAction.QUERY_SUBMITTED);
+        if (shouldRecordStartPageMetrics()) {
+          recordVoiceAction(VoiceAction.QUERY_SUBMITTED);
+        }
         break;
       default:
         assertNotReached();
@@ -1053,7 +1090,9 @@ export class AppElement extends AppElementBase {
     }
     if (ctrlKeyPressed && e.code === 'Period' && e.shiftKey) {
       this.showVoiceSearchOverlay_ = true;
-      recordVoiceAction(VoiceAction.ACTIVATE_KEYBOARD);
+      if (shouldRecordStartPageMetrics()) {
+        recordVoiceAction(VoiceAction.ACTIVATE_KEYBOARD);
+      }
     }
   }
 
@@ -1083,6 +1122,10 @@ export class AppElement extends AppElementBase {
   }
 
   private onThemeLoaded_(theme: Theme) {
+    if (!shouldRecordStartPageMetrics()) {
+      return;
+    }
+
     recordSparseValueWithPersistentHash(
         'NewTabPage.Collections.IdOnLoad',
         theme.backgroundImageCollectionId ?? '');
@@ -1101,8 +1144,10 @@ export class AppElement extends AppElementBase {
   private onPromoAndModulesLoadedChange_() {
     if (this.promoAndModulesLoaded_ &&
         loadTimeData.getBoolean('modulesEnabled')) {
-      recordLoadDuration(
-          'NewTabPage.Modules.ShownTime', WindowProxy.getInstance().now());
+      if (shouldRecordStartPageMetrics()) {
+        recordLoadDuration(
+            'NewTabPage.Modules.ShownTime', WindowProxy.getInstance().now());
+      }
     }
   }
 
@@ -1216,7 +1261,10 @@ export class AppElement extends AppElementBase {
       oneGoogleBar.style.clipPath = 'url(#oneGoogleBarClipPath)';
       oneGoogleBar.style.zIndex = '1000';
       this.oneGoogleBarLoaded_ = true;
-      this.pageHandler_.onOneGoogleBarRendered(WindowProxy.getInstance().now());
+      if (shouldRecordStartPageMetrics()) {
+        this.pageHandler_.onOneGoogleBarRendered(
+            WindowProxy.getInstance().now());
+      }
     } else if (data.messageType === 'overlaysUpdated') {
       this.$.oneGoogleBarClipPath.querySelectorAll('rect').forEach(el => {
         el.remove();
@@ -1286,6 +1334,57 @@ export class AppElement extends AppElementBase {
     this.selectedCustomizeDialogPage_ = CustomizeDialogPage.MODULES;
     recordCustomizeChromeOpen(NtpCustomizeChromeEntryPoint.MODULE);
     this.setCustomizeChromeSidePanelVisible_(this.showCustomize_);
+  }
+
+  protected onSyncLayoutToggle_(e: CustomEvent<{value: boolean}>) {
+    this.onStartPagePrivacyToggle_(
+        StartPagePrivacySetting.kSyncLayout, 'syncLayout', e);
+  }
+
+  protected onAccountBackedModulesToggle_(e: CustomEvent<{value: boolean}>) {
+    this.onStartPagePrivacyToggle_(
+        StartPagePrivacySetting.kAccountBackedModulesEnabled,
+        'accountBackedModulesEnabled', e);
+  }
+
+  protected onPromosVisibleToggle_(e: CustomEvent<{value: boolean}>) {
+    this.onStartPagePrivacyToggle_(
+        StartPagePrivacySetting.kPromosVisible, 'promosVisible', e);
+  }
+
+  protected onDoodlesEnabledToggle_(e: CustomEvent<{value: boolean}>) {
+    this.onStartPagePrivacyToggle_(
+        StartPagePrivacySetting.kDoodlesEnabled, 'doodlesEnabled', e);
+  }
+
+  protected onUsageMetricsToggle_(e: CustomEvent<{value: boolean}>) {
+    this.onStartPagePrivacyToggle_(
+        StartPagePrivacySetting.kUsageMetricsEnabled, 'usageMetricsEnabled', e);
+  }
+
+  protected onStartPagePrivacyToggle_(
+      setting: StartPagePrivacySetting,
+      key: keyof StartPagePrivacySettings,
+      e: CustomEvent<{value: boolean}>) {
+    if (!this.privacySettings_) {
+      return;
+    }
+
+    const enabled = e.detail.value;
+    this.privacySettings_ = {...this.privacySettings_, [key]: enabled};
+    if (key === 'promosVisible') {
+      this.middleSlotPromoEnabled_ = enabled &&
+          loadTimeData.getBoolean('middleSlotPromoEnabled');
+    }
+    this.pageHandler_.setStartPagePrivacySetting(setting, enabled);
+    if (key === 'usageMetricsEnabled') {
+      this.pageHandler_.getStartPagePrivacySettings().then(({settings}) => {
+        this.privacySettings_ = settings;
+        loadTimeData.overrideValues({
+          startPageUsageMetricsEnabled: settings.usageMetricsEnabled,
+        });
+      });
+    }
   }
 
   private setCustomizeChromeSidePanelVisible_(visible: boolean) {

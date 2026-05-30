@@ -129,6 +129,11 @@ class NewTabPageHandler
   // new_tab_page::mojom::PageHandler:
   void SetMostVisitedSettings(ntp_tiles::TileType type, bool visible) override;
   void GetMostVisitedSettings(GetMostVisitedSettingsCallback callback) override;
+  void GetStartPagePrivacySettings(
+      GetStartPagePrivacySettingsCallback callback) override;
+  void SetStartPagePrivacySetting(
+      new_tab_page::mojom::StartPagePrivacySetting setting,
+      bool enabled) override;
   void GetDoodle(GetDoodleCallback callback) override;
   void UpdatePromoData() override;
   void BlocklistPromo(const std::string& promo_id) override;
@@ -211,6 +216,10 @@ class NewTabPageHandler
   void OnFetchResult(const network::SimpleURLLoader* loader,
                      OnFetchResultCallback on_result,
                      std::optional<std::string> body);
+  bool IsStartPageLocalOnlyMode() const;
+  bool AreStartPageUsageMetricsAllowed() const;
+  bool IsAccountBackedModule(const std::string& module_id) const;
+
   void OnLogFetchResult(OnDoodleImageRenderedCallback callback,
                         bool success,
                         std::optional<std::string> body);

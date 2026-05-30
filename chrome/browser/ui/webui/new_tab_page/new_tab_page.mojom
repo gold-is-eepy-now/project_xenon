@@ -186,6 +186,30 @@ enum OptInStatus {
   kOptOut,
 };
 
+
+// Local and remote privacy controls for the start page.
+struct StartPagePrivacySettings {
+  // Keeps layout, custom widgets, custom links, and hidden widgets local unless
+  // explicitly enabled.
+  bool sync_layout;
+  // Allows modules that require account-backed remote data.
+  bool account_backed_modules_enabled;
+  // Allows start-page promos.
+  bool promos_visible;
+  // Allows fetching doodles from the default search provider.
+  bool doodles_enabled;
+  // Allows non-essential usage metrics when Chrome metrics consent also exists.
+  bool usage_metrics_enabled;
+};
+
+enum StartPagePrivacySetting {
+  kSyncLayout,
+  kAccountBackedModulesEnabled,
+  kPromosVisible,
+  kDoodlesEnabled,
+  kUsageMetricsEnabled,
+};
+
 // Used by the WebUI page to bootstrap bidirectional communication.
 interface PageHandlerFactory {
   // The WebUI page's |BrowserProxy| singleton calls this method when the page
@@ -202,6 +226,10 @@ interface PageHandler {
   // Returns the visibility of NTP tiles and the shortcuts type.
   GetMostVisitedSettings() => (ntp_tiles.mojom.TileType shortcuts_type,
     bool shortcuts_visible);
+  // Returns local and remote privacy controls for the start page.
+  GetStartPagePrivacySettings() => (StartPagePrivacySettings settings);
+  // Updates one start-page privacy control.
+  SetStartPagePrivacySetting(StartPagePrivacySetting setting, bool enabled);
   // Gets current doodle if there is one.
   GetDoodle() => (Doodle? doodle);
   // Updates middle slot promo data. Triggers a call to |SetPromo|.

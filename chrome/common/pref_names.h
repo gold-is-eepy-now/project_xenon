@@ -1704,6 +1704,18 @@ inline constexpr char kNtpMicrosoftFilesModuleRetryAfterTime[] =
     "NewTabPage.MicrosoftFilesModuleRetryAfterTime";
 // List keeping track of NTP modules order.
 inline constexpr char kNtpModulesOrder[] = "NewTabPage.ModulesOrder";
+// Whether NTP customization state should be synced beyond the local profile.
+inline constexpr char kNtpStartPageSyncLayout[] =
+    "NewTabPage.Privacy.SyncLayout";
+// Whether account-backed NTP modules may fetch remote personalized data.
+inline constexpr char kNtpStartPageAccountBackedModulesEnabled[] =
+    "NewTabPage.Privacy.AccountBackedModulesEnabled";
+// Whether the NTP may fetch Google doodles.
+inline constexpr char kNtpStartPageDoodlesEnabled[] =
+    "NewTabPage.Privacy.DoodlesEnabled";
+// Whether non-essential NTP usage metrics may be recorded.
+inline constexpr char kNtpStartPageUsageMetricsEnabled[] =
+    "NewTabPage.Privacy.UsageMetricsEnabled";
 // Whether NTP modules are visible.
 inline constexpr char kNtpModulesVisible[] = "NewTabPage.ModulesVisible";
 // Whether the AI action chips are visible in the NTP.
@@ -2304,7 +2316,6 @@ inline constexpr char kReportingUsers[] = "reporting_users";
 inline constexpr char kArcAppInstallEventLoggingEnabled[] =
     "arc.app_install_event_logging_enabled";
 
-
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // String which specifies where to store the disk cache.
@@ -2887,7 +2898,6 @@ inline constexpr char kCaretBrowsingEnabled[] =
 // is toggled silently by the keyboard shortcut.
 inline constexpr char kShowCaretBrowsingDialog[] =
     "settings.a11y.caretbrowsing.show_dialog";
-
 
 #if BUILDFLAG(IS_ANDROID)
 // Boolean pref controlling whether immersive AR sessions are enabled

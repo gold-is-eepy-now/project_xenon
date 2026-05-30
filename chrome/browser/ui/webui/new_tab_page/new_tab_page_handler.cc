@@ -38,6 +38,7 @@
 #include "chrome/browser/desktop_to_mobile_promos/promos_pref_names.h"
 #include "chrome/browser/desktop_to_mobile_promos/promos_utils.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
+#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/new_tab_page/feature_promo_helper/new_tab_page_feature_promo_helper.h"
 #include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service.h"
 #include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service_factory.h"
@@ -645,6 +646,11 @@ void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterListPref(prefs::kNtpDisabledModules);
   registry->RegisterListPref(prefs::kNtpHiddenModules);
   registry->RegisterListPref(prefs::kNtpModulesOrder);
+  registry->RegisterBooleanPref(prefs::kNtpStartPageSyncLayout, false);
+  registry->RegisterBooleanPref(prefs::kNtpStartPageAccountBackedModulesEnabled,
+                                true);
+  registry->RegisterBooleanPref(prefs::kNtpStartPageDoodlesEnabled, true);
+  registry->RegisterBooleanPref(prefs::kNtpStartPageUsageMetricsEnabled, true);
   registry->RegisterBooleanPref(prefs::kNtpModulesVisible, true);
   registry->RegisterBooleanPref(prefs::kNtpToolChipsVisible, true);
   registry->RegisterIntegerPref(prefs::kNtpCustomizeChromeButtonOpenCount, 0);
@@ -689,7 +695,56 @@ void NewTabPageHandler::GetMostVisitedSettings(
   std::move(callback).Run(type, visible);
 }
 
+void NewTabPageHandler::GetStartPagePrivacySettings(
+    GetStartPagePrivacySettingsCallback callback) {
+  auto settings = new_tab_page::mojom::StartPagePrivacySettings::New();
+  PrefService* pref_service = profile_->GetPrefs();
+  settings->sync_layout =
+      pref_service->GetBoolean(prefs::kNtpStartPageSyncLayout);
+  settings->account_backed_modules_enabled =
+      pref_service->GetBoolean(prefs::kNtpStartPageAccountBackedModulesEnabled);
+  settings->promos_visible = pref_service->GetBoolean(prefs::kNtpPromoVisible);
+  settings->doodles_enabled =
+      pref_service->GetBoolean(prefs::kNtpStartPageDoodlesEnabled);
+  settings->usage_metrics_enabled = AreStartPageUsageMetricsAllowed();
+  std::move(callback).Run(std::move(settings));
+}
+
+void NewTabPageHandler::SetStartPagePrivacySetting(
+    new_tab_page::mojom::StartPagePrivacySetting setting,
+    bool enabled) {
+  PrefService* pref_service = profile_->GetPrefs();
+  switch (setting) {
+    case new_tab_page::mojom::StartPagePrivacySetting::kSyncLayout:
+      pref_service->SetBoolean(prefs::kNtpStartPageSyncLayout, enabled);
+      break;
+    case new_tab_page::mojom::StartPagePrivacySetting::
+        kAccountBackedModulesEnabled:
+      pref_service->SetBoolean(prefs::kNtpStartPageAccountBackedModulesEnabled,
+                               enabled);
+      UpdateDisabledModules();
+      break;
+    case new_tab_page::mojom::StartPagePrivacySetting::kPromosVisible:
+      pref_service->SetBoolean(prefs::kNtpPromoVisible, enabled);
+      UpdatePromoData();
+      break;
+    case new_tab_page::mojom::StartPagePrivacySetting::kDoodlesEnabled:
+      pref_service->SetBoolean(prefs::kNtpStartPageDoodlesEnabled, enabled);
+      break;
+    case new_tab_page::mojom::StartPagePrivacySetting::kUsageMetricsEnabled:
+      pref_service->SetBoolean(prefs::kNtpStartPageUsageMetricsEnabled,
+                               enabled);
+      break;
+  }
+}
+
 void NewTabPageHandler::GetDoodle(GetDoodleCallback callback) {
+  if (!profile_->GetPrefs()->GetBoolean(prefs::kNtpStartPageDoodlesEnabled) ||
+      !logo_service_) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
   bool enable_animated_logo =
       base::FeatureList::IsEnabled(ntp_features::kNtpAnimatedDoodles) &&
       !gfx::Animation::PrefersReducedMotion();
@@ -704,6 +759,12 @@ void NewTabPageHandler::GetDoodle(GetDoodleCallback callback) {
 }
 
 void NewTabPageHandler::UpdatePromoData() {
+  if (!profile_->GetPrefs()->GetBoolean(prefs::kNtpPromoVisible) ||
+      !promo_service_) {
+    page_->SetPromo(nullptr);
+    return;
+  }
+
   if (promo_service_->promo_data().has_value()) {
     OnPromoDataUpdated();
   }
@@ -726,6 +787,10 @@ void NewTabPageHandler::UndoBlocklistPromo(const std::string& promo_id) {
 }
 
 void NewTabPageHandler::OnDismissModule(const std::string& module_id) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   const std::string histogram_prefix(kModuleDismissedHistogram);
   base::UmaHistogramExactLinear(histogram_prefix, 1, 1);
   base::UmaHistogramExactLinear(histogram_prefix + "." + module_id, 1, 1);
@@ -735,6 +800,10 @@ void NewTabPageHandler::OnDismissModule(const std::string& module_id) {
 }
 
 void NewTabPageHandler::OnRestoreModule(const std::string& module_id) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   const std::string histogram_prefix(kModuleRestoredHistogram);
   base::UmaHistogramExactLinear(histogram_prefix, 1, 1);
   base::UmaHistogramExactLinear(histogram_prefix + "." + module_id, 1, 1);
@@ -769,7 +838,7 @@ void NewTabPageHandler::SetModulesDisabled(
 
   // We're not recording a user interaction if the modules were disabled due to
   // feature optimization auto removal.
-  if (is_user_action) {
+  if (is_user_action && AreStartPageUsageMetricsAllowed()) {
     for (const auto& module_id : module_ids) {
       IncrementDictPrefKeyCount(prefs::kNtpModulesInteractedCountDict,
                                 module_id);
@@ -809,6 +878,10 @@ void NewTabPageHandler::UpdateDisabledModules() {
 void NewTabPageHandler::OnModulesLoadedWithData(
     const std::vector<std::string>& module_ids) {
   UpdateModulesStaleness(profile_, module_ids);
+
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
 
   for (const auto& module_id : module_ids) {
     IncrementDictPrefKeyCount(prefs::kNtpModulesLoadedCountDict, module_id);
@@ -860,6 +933,9 @@ void NewTabPageHandler::OnModulesLoadedWithData(
 }
 
 void NewTabPageHandler::OnModuleUsed(const std::string& module_id) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
   RecordModuleInteraction(module_id);
   MaybeLaunchInteractionSurvey(kUseInteraction, module_id);
 }
@@ -867,6 +943,11 @@ void NewTabPageHandler::OnModuleUsed(const std::string& module_id) {
 void NewTabPageHandler::GetModulesIdNames(GetModulesIdNamesCallback callback) {
   std::vector<new_tab_page::mojom::ModuleIdNamePtr> modules_details;
   for (const auto& module_id_detail : *module_id_details_) {
+    if (!profile_->GetPrefs()->GetBoolean(
+            prefs::kNtpStartPageAccountBackedModulesEnabled) &&
+        IsAccountBackedModule(module_id_detail.id_)) {
+      continue;
+    }
     auto module_id_name = new_tab_page::mojom::ModuleIdName::New();
     module_id_name->id = module_id_detail.id_;
     module_id_name->name =
@@ -969,7 +1050,9 @@ void NewTabPageHandler::GetModulesOrder(GetModulesOrderCallback callback) {
 }
 
 void NewTabPageHandler::UpdateModulesLoadable() {
-  if (!microsoft_auth_service_ || SyncMicrosoftModulesWithAuth()) {
+  if (!profile_->GetPrefs()->GetBoolean(
+          prefs::kNtpStartPageAccountBackedModulesEnabled) ||
+      !microsoft_auth_service_ || SyncMicrosoftModulesWithAuth()) {
     page_->SetModulesLoadable();
   }
 }
@@ -1006,11 +1089,19 @@ void NewTabPageHandler::UpdateFooterVisibility() {
 }
 
 void NewTabPageHandler::OnAppRendered(double time) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   LogEvent(NTP_APP_RENDERED, base::Time::FromMillisecondsSinceUnixEpoch(time) -
                                  ntp_navigation_start_time_);
 }
 
 void NewTabPageHandler::OnOneGoogleBarRendered(double time) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   LogEvent(NTP_ONE_GOOGLE_BAR_SHOWN,
            base::Time::FromMillisecondsSinceUnixEpoch(time) -
                ntp_navigation_start_time_);
@@ -1018,6 +1109,10 @@ void NewTabPageHandler::OnOneGoogleBarRendered(double time) {
 
 void NewTabPageHandler::OnPromoRendered(double time,
                                         const std::optional<GURL>& log_url) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   LogEvent(NTP_MIDDLE_SLOT_PROMO_SHOWN,
            base::Time::FromMillisecondsSinceUnixEpoch(time) -
                ntp_navigation_start_time_);
@@ -1028,6 +1123,10 @@ void NewTabPageHandler::OnPromoRendered(double time,
 
 void NewTabPageHandler::OnCustomizeDialogAction(
     new_tab_page::mojom::CustomizeDialogAction action) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   NTPLoggingEventType event;
   switch (action) {
     case new_tab_page::mojom::CustomizeDialogAction::kCancelClicked:
@@ -1082,6 +1181,10 @@ void NewTabPageHandler::OnCustomizeDialogAction(
 void NewTabPageHandler::OnDoodleImageClicked(
     new_tab_page::mojom::DoodleImageType type,
     const std::optional<::GURL>& log_url) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   NTPLoggingEventType event;
   switch (type) {
     case new_tab_page::mojom::DoodleImageType::kAnimation:
@@ -1108,6 +1211,11 @@ void NewTabPageHandler::OnDoodleImageRendered(
     double time,
     const GURL& log_url,
     OnDoodleImageRenderedCallback callback) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    std::move(callback).Run("", std::nullopt, "");
+    return;
+  }
+
   switch (type) {
     case new_tab_page::mojom::DoodleImageType::kAnimation:
       LogEvent(NTP_ANIMATED_LOGO_SHOWN_FROM_CACHE,
@@ -1131,6 +1239,10 @@ void NewTabPageHandler::OnDoodleShared(
     new_tab_page::mojom::DoodleShareChannel channel,
     const std::string& doodle_id,
     const std::optional<std::string>& share_id) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   int channel_id;
   switch (channel) {
     case new_tab_page::mojom::DoodleShareChannel::kFacebook:
@@ -1163,6 +1275,10 @@ void NewTabPageHandler::OnDoodleShared(
 }
 
 void NewTabPageHandler::OnPromoLinkClicked() {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
   LogEvent(NTP_MIDDLE_SLOT_PROMO_LINK_CLICKED);
 }
 
@@ -1188,26 +1304,35 @@ void NewTabPageHandler::OnCustomBackgroundImageUpdated() {
 }
 
 void NewTabPageHandler::OnPromoDataUpdated() {
+  if (!profile_->GetPrefs()->GetBoolean(prefs::kNtpPromoVisible)) {
+    page_->SetPromo(nullptr);
+    return;
+  }
+
   if (promo_load_start_time_.has_value()) {
-    base::TimeDelta duration = base::TimeTicks::Now() - *promo_load_start_time_;
-    DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2",
-                                          duration);
-    if (promo_service_->promo_status() == PromoService::Status::OK_WITH_PROMO) {
-      DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
-          "NewTabPage.Promos.RequestLatency2.SuccessWithPromo", duration);
-    } else if (promo_service_->promo_status() ==
-               PromoService::Status::OK_BUT_BLOCKED) {
-      DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
-          "NewTabPage.Promos.RequestLatency2.SuccessButBlocked", duration);
-    } else if (promo_service_->promo_status() ==
-               PromoService::Status::OK_WITHOUT_PROMO) {
-      DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
-          "NewTabPage.Promos.RequestLatency2.SuccessWithoutPromo", duration);
-    } else {
-      DCHECK(promo_service_->promo_status() !=
-             PromoService::Status::NOT_UPDATED);
-      DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
-          "NewTabPage.Promos.RequestLatency2.Failure", duration);
+    if (AreStartPageUsageMetricsAllowed()) {
+      base::TimeDelta duration =
+          base::TimeTicks::Now() - *promo_load_start_time_;
+      DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2",
+                                            duration);
+      if (promo_service_->promo_status() ==
+          PromoService::Status::OK_WITH_PROMO) {
+        DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
+            "NewTabPage.Promos.RequestLatency2.SuccessWithPromo", duration);
+      } else if (promo_service_->promo_status() ==
+                 PromoService::Status::OK_BUT_BLOCKED) {
+        DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
+            "NewTabPage.Promos.RequestLatency2.SuccessButBlocked", duration);
+      } else if (promo_service_->promo_status() ==
+                 PromoService::Status::OK_WITHOUT_PROMO) {
+        DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
+            "NewTabPage.Promos.RequestLatency2.SuccessWithoutPromo", duration);
+      } else {
+        DCHECK(promo_service_->promo_status() !=
+               PromoService::Status::NOT_UPDATED);
+        DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
+            "NewTabPage.Promos.RequestLatency2.Failure", duration);
+      }
     }
     promo_load_start_time_ = std::nullopt;
   }
@@ -1320,7 +1445,36 @@ void NewTabPageHandler::MaybeTriggerAutomaticCustomizeChromePromo() {
 #endif
 }
 
+bool NewTabPageHandler::IsStartPageLocalOnlyMode() const {
+  const PrefService* pref_service = profile_->GetPrefs();
+  return !pref_service->GetBoolean(prefs::kNtpStartPageSyncLayout) &&
+         !pref_service->GetBoolean(
+             prefs::kNtpStartPageAccountBackedModulesEnabled) &&
+         !pref_service->GetBoolean(prefs::kNtpPromoVisible) &&
+         !pref_service->GetBoolean(prefs::kNtpStartPageDoodlesEnabled);
+}
+
+bool NewTabPageHandler::AreStartPageUsageMetricsAllowed() const {
+  return profile_->GetPrefs()->GetBoolean(
+             prefs::kNtpStartPageUsageMetricsEnabled) &&
+         !IsStartPageLocalOnlyMode() &&
+         ChromeMetricsServiceAccessor::IsMetricsAndCrashReportingEnabled();
+}
+
+bool NewTabPageHandler::IsAccountBackedModule(
+    const std::string& module_id) const {
+  return module_id == ntp_modules::kGoogleCalendarModuleId ||
+         module_id == ntp_modules::kOutlookCalendarModuleId ||
+         module_id == ntp_modules::kDriveModuleId ||
+         module_id == ntp_modules::kMicrosoftFilesModuleId ||
+         module_id == ntp_modules::kMicrosoftAuthenticationModuleId;
+}
+
 void NewTabPageHandler::LogEvent(NTPLoggingEventType event) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
 // TODO(b/502297163): Implement for Android.
 #if !BUILDFLAG(IS_ANDROID)
   logger_.LogEvent(event, base::TimeDelta() /* unused */);
@@ -1329,6 +1483,10 @@ void NewTabPageHandler::LogEvent(NTPLoggingEventType event) {
 
 void NewTabPageHandler::LogEvent(NTPLoggingEventType event,
                                  base::TimeDelta delta) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    return;
+  }
+
 // TODO(b/502297163): Implement for Android.
 #if !BUILDFLAG(IS_ANDROID)
   logger_.LogEvent(event, delta);
@@ -1337,6 +1495,12 @@ void NewTabPageHandler::LogEvent(NTPLoggingEventType event,
 
 void NewTabPageHandler::Fetch(const GURL& url,
                               OnFetchResultCallback on_result) {
+  if (!AreStartPageUsageMetricsAllowed()) {
+    if (on_result) {
+      std::move(on_result).Run(false, std::nullopt);
+    }
+    return;
+  }
   auto traffic_annotation =
       net::DefineNetworkTrafficAnnotation("new_tab_page_handler", R"(
         semantics {

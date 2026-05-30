@@ -46,6 +46,10 @@ const MARGIN_WIDTH = 48;
 
 const METRIC_NAME_MODULE_DISABLED = 'NewTabPage.Modules.Disabled';
 
+function shouldRecordStartPageMetrics(): boolean {
+  return loadTimeData.getBoolean('startPageUsageMetricsEnabled');
+}
+
 export type UndoActionEvent =
     CustomEvent<{message: string, restoreCallback?: () => void}>;
 export type DismissModuleElementEvent = UndoActionEvent;
@@ -306,6 +310,10 @@ export class ModulesElement extends CrLitElement {
 
   private recordInitialLoadMetrics_(
       modules: Module[], modulesIdNames: ModuleIdName[]) {
+    if (!shouldRecordStartPageMetrics()) {
+      return;
+    }
+
     recordSmallCount('NewTabPage.Modules.LoadedModulesCount', modules.length);
     modulesIdNames.forEach(({id}) => {
       recordBoolean(
@@ -321,6 +329,10 @@ export class ModulesElement extends CrLitElement {
   }
 
   private recordModuleLoadedWithModules_(onNtpLoad: boolean) {
+    if (!shouldRecordStartPageMetrics()) {
+      return;
+    }
+
     const moduleDescriptorIds = [...new Set(
         this.moduleInstances_.map(instance => instance.descriptor.id))];
 
@@ -339,6 +351,10 @@ export class ModulesElement extends CrLitElement {
 
   private recordModuleAutoRemovalMetrics_(
       moduleIds: string[], disabled: boolean) {
+    if (!shouldRecordStartPageMetrics()) {
+      return;
+    }
+
     const histogramBase = disabled ? 'NewTabPage.Modules.AutoRemoval' :
                                      'NewTabPage.Modules.AutoRemovalUndone';
 
@@ -444,9 +460,11 @@ export class ModulesElement extends CrLitElement {
       }
 
       this.moduleInstances_ = newModuleInstances;
-      recordSmallCount(
-          'NewTabPage.Modules.ReloadedModulesCount',
-          this.moduleInstances_.length);
+      if (shouldRecordStartPageMetrics()) {
+        recordSmallCount(
+            'NewTabPage.Modules.ReloadedModulesCount',
+            this.moduleInstances_.length);
+      }
       this.recordModuleLoadedWithModules_(/*onNtpLoad=*/ false);
     }
   }
@@ -518,18 +536,22 @@ export class ModulesElement extends CrLitElement {
         }
         this.pageHandler_.setModulesDisabled(
             [id], /*disabled=*/ false, /*is_user_action=*/ true);
-        recordSparseValueWithPersistentHash('NewTabPage.Modules.Enabled', id);
-        recordSparseValueWithPersistentHash(
-            'NewTabPage.Modules.Enabled.Toast', id);
+        if (shouldRecordStartPageMetrics()) {
+          recordSparseValueWithPersistentHash('NewTabPage.Modules.Enabled', id);
+          recordSparseValueWithPersistentHash(
+              'NewTabPage.Modules.Enabled.Toast', id);
+        }
       },
     };
 
     this.pageHandler_.setModulesDisabled(
         [id], /*disabled=*/ true, /*is_user_action=*/ true);
     this.$.undoToast.show();
-    recordSparseValueWithPersistentHash(METRIC_NAME_MODULE_DISABLED, id);
-    recordSparseValueWithPersistentHash(
-        `${METRIC_NAME_MODULE_DISABLED}.ModuleRequest`, id);
+    if (shouldRecordStartPageMetrics()) {
+      recordSparseValueWithPersistentHash(METRIC_NAME_MODULE_DISABLED, id);
+      recordSparseValueWithPersistentHash(
+          `${METRIC_NAME_MODULE_DISABLED}.ModuleRequest`, id);
+    }
   }
 
   /**
@@ -553,9 +575,11 @@ export class ModulesElement extends CrLitElement {
                 this.moduleInstances_.toSpliced(index, 0, module);
             restoreCallback();
 
-            recordOccurrence('NewTabPage.Modules.Restored');
-            recordOccurrence(
-                `NewTabPage.Modules.Restored.${module.descriptor.id}`);
+            if (shouldRecordStartPageMetrics()) {
+              recordOccurrence('NewTabPage.Modules.Restored');
+              recordOccurrence(
+                  `NewTabPage.Modules.Restored.${module.descriptor.id}`);
+            }
           } :
           undefined,
     };

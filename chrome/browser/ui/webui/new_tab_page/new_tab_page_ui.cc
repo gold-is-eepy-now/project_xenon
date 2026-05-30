@@ -30,6 +30,7 @@
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
+#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/new_tab_page/feature_promo_helper/new_tab_page_feature_promo_helper.h"
 #include "chrome/browser/new_tab_page/modules/file_suggestion/drive_service.h"
 #include "chrome/browser/new_tab_page/modules/file_suggestion/drive_suggestion_handler.h"
@@ -288,6 +289,21 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
       "middleSlotPromoEnabled",
       base::FeatureList::IsEnabled(ntp_features::kNtpMiddleSlotPromo) &&
           profile->GetPrefs()->GetBoolean(prefs::kNtpPromoVisible));
+  const bool start_page_local_only_mode =
+      !profile->GetPrefs()->GetBoolean(prefs::kNtpStartPageSyncLayout) &&
+      !profile->GetPrefs()->GetBoolean(
+          prefs::kNtpStartPageAccountBackedModulesEnabled) &&
+      !profile->GetPrefs()->GetBoolean(prefs::kNtpPromoVisible) &&
+      !profile->GetPrefs()->GetBoolean(prefs::kNtpStartPageDoodlesEnabled);
+  source->AddBoolean(
+      "startPageUsageMetricsEnabled",
+      profile->GetPrefs()->GetBoolean(
+          prefs::kNtpStartPageUsageMetricsEnabled) &&
+          !start_page_local_only_mode &&
+          ChromeMetricsServiceAccessor::IsMetricsAndCrashReportingEnabled());
+  source->AddBoolean("startPageAccountBackedModulesEnabled",
+                     profile->GetPrefs()->GetBoolean(
+                         prefs::kNtpStartPageAccountBackedModulesEnabled));
   source->AddBoolean(
       "middleSlotPromoDismissalEnabled",
       base::FeatureList::IsEnabled(ntp_features::kNtpMiddleSlotPromoDismissal));
@@ -626,7 +642,10 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
           ntp_features::kNtpTabGroupsModuleWindowEndDeltaParam.Get()
               .InHours()));
 
-  bool microsoft_module_enabled = IsMicrosoftModuleEnabledForProfile(profile);
+  bool microsoft_module_enabled =
+      profile->GetPrefs()->GetBoolean(
+          prefs::kNtpStartPageAccountBackedModulesEnabled) &&
+      IsMicrosoftModuleEnabledForProfile(profile);
   source->AddBoolean("microsoftModuleEnabled", microsoft_module_enabled);
   source->AddBoolean("modulesReloadable", microsoft_module_enabled);
   source->AddBoolean("waitToLoadModules", microsoft_module_enabled);
@@ -691,8 +710,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
                      ntp_composebox::kShowContextMenuTabPreviews.Get());
   source->AddBoolean("composeboxContextMenuEnableMultiTabSelection",
                      ntp_composebox::kContextMenuEnableMultiTabSelection.Get());
-  source->AddBoolean("contextManagementInComposeboxEnabled",
-  base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
+  source->AddBoolean(
+      "contextManagementInComposeboxEnabled",
+      base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
   source->AddBoolean(
       "tabFaviconChipsToCoinsEnabled",
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) &&
@@ -845,8 +865,7 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
       navigation_start_time_(base::Time::Now()),
       module_id_details_(
           ntp::MakeModuleIdDetails(NewTabPageUI::IsManagedProfile(profile_),
-                                   profile_))
-{
+                                   profile_)) {
 
   instance_count_++;
   base::UmaHistogramCounts100("NewTabPage.Count", instance_count_);

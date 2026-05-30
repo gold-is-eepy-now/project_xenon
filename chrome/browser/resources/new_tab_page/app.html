@@ -107,6 +107,53 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
       </ntp-lens-upload-dialog>
     ` : ''}
   </div>
+  ${this.privacySettings_ ? html`
+    <section id="startPagePrivacySettings"
+        aria-label="Start-page privacy settings">
+      <div class="privacyHeader">Start-page privacy</div>
+      <div class="privacySummary">
+        Local customization stays in this profile by default. Turn on remote
+        personalization features explicitly.
+      </div>
+      <div class="privacyControls">
+        <label>
+          <span>Sync layout and customization</span>
+          <cr-toggle
+              .checked="${this.privacySettings_.syncLayout}"
+              @checked-changed="${this.onSyncLayoutToggle_}">
+          </cr-toggle>
+        </label>
+        <label>
+          <span>Use account-backed modules</span>
+          <cr-toggle
+              .checked="${this.privacySettings_.accountBackedModulesEnabled}"
+              @checked-changed="${this.onAccountBackedModulesToggle_}">
+          </cr-toggle>
+        </label>
+        <label>
+          <span>Show promos</span>
+          <cr-toggle
+              .checked="${this.privacySettings_.promosVisible}"
+              @checked-changed="${this.onPromosVisibleToggle_}">
+          </cr-toggle>
+        </label>
+        <label>
+          <span>Fetch doodles</span>
+          <cr-toggle
+              .checked="${this.privacySettings_.doodlesEnabled}"
+              @checked-changed="${this.onDoodlesEnabledToggle_}">
+          </cr-toggle>
+        </label>
+        <label>
+          <span>Send usage metrics</span>
+          <cr-toggle
+              .checked="${this.privacySettings_.usageMetricsEnabled}"
+              @checked-changed="${this.onUsageMetricsToggle_}">
+          </cr-toggle>
+        </label>
+      </div>
+    </section>
+  ` : ''}
   ${this.lazyRender_
     && this.ntpNextFeaturesEnabled_
     && (!this.ntpNextDisablementEnabled_ || this.isActionChipsVisible_) ? html`
