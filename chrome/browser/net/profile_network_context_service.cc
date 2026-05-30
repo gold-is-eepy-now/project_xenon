@@ -31,6 +31,7 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "build/config/xenon/xenon_buildflags.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
@@ -635,8 +636,15 @@ void ProfileNetworkContextService::ConfigureNetworkContextParams(
 // static
 void ProfileNetworkContextService::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
+  // Xenon (privacy): "Use a web service to help resolve navigation errors"
+  // sends the failed URL to Google's link-doctor service. Default it off when
+  // privacy hardening is enabled; users can still opt in.
   registry->RegisterBooleanPref(embedder_support::kAlternateErrorPagesEnabled,
+#if BUILDFLAG(XENON_PRIVACY_HARDENING)
+                                false);
+#else
                                 true);
+#endif
   registry->RegisterBooleanPref(prefs::kQuicAllowed, true);
   registry->RegisterBooleanPref(prefs::kGloballyScopeHTTPAuthCacheEnabled,
                                 false);
