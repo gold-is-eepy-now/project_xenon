@@ -2,7 +2,8 @@
 
 [Browse or Search Chromium Code](https://source.chromium.org/chromium) online.
 
-Chromium supports building on Windows, Mac and Linux host systems.
+Chromium supports building on Windows, Mac and Linux host systems. FreeBSD is
+additionally supported by the community.
 
 The process for building Chrome is generally the same on all platforms, but
 each platform has a few quirks. In order to keep you from having to jump
@@ -12,6 +13,7 @@ you might want to build:
 * [Android](android_build_instructions.md) (Build on Linux)
 * [Android Cast](android_cast_build_instructions.md) (Build on Linux)
 * [Chrome OS](chromeos_build_instructions.md) (Build on Linux)
+* [FreeBSD](freebsd/build_instructions.md) (community-supported)
 * [Fuchsia](fuchsia/build_instructions.md)
 * [iOS](ios/build_instructions.md) (Build on Mac)
 * [Linux](linux/build_instructions.md)
