@@ -390,6 +390,10 @@ default_compiler_configs = [
   "//build/config/coverage:default_coverage",
   "//build/config/sanitizers:default_sanitizer_flags",
   "//build/config:feature_flags",
+
+  # Xenon: gated performance flags (-O3 / SIMD baseline / AES-NI). No-op unless
+  # the corresponding xenon_* args are set; see //build/config/xenon/xenon.gni.
+  "//build/config/xenon:xenon_perf",
 ]
 
 if (is_win) {

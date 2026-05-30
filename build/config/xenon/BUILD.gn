@@ -1,0 +1,75 @@
+# Copyright 2026 The Project Xenon Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/buildflag_header.gni")
+import("//build/config/xenon/xenon.gni")
+
+# Xenon performance flags (pillar 1).
+#
+# Appended to default_compiler_configs (see //build/config/BUILDCONFIG.gn), so
+# its flags come *after* the standard "optimize" config and therefore win
+# (clang/gcc honor the last optimization/ISA flag). When all knobs are at their
+# upstream defaults this config adds nothing, so it is a strict no-op.
+#
+# Scope: only the target toolchain is affected, so host build tools (protoc,
+# etc.) keep the portable baseline and still run on older build machines. Only
+# the clang/gcc (non-Windows) driver syntax is handled for now; clang-cl
+# (Windows) support is a follow-up.
+config("xenon_perf") {
+  cflags = []
+
+  if (is_xenon && !is_win && current_toolchain == default_toolchain) {
+    if (xenon_full_optimization) {
+      # Raise -O2 -> -O3. Trades a little binary size for speed.
+      cflags += [ "-O3" ]
+    }
+
+    if (current_cpu == "x64" || current_cpu == "x86") {
+      # Raise the x86-64 SIMD baseline. Higher levels are faster but require
+      # newer CPUs, so distributors must ship an appropriate baseline.
+      if (xenon_simd_level == "sse3") {
+        cflags += [ "-msse3" ]
+      } else if (xenon_simd_level == "sse4") {
+        cflags += [ "-msse4.2" ]
+      } else if (xenon_simd_level == "avx") {
+        cflags += [ "-mavx" ]
+      } else if (xenon_simd_level == "avx2") {
+        cflags += [
+          "-mavx2",
+          "-mfma",
+        ]
+      }
+
+      # Enable AES-NI + CLMUL hardware crypto (helps TLS/GCM paths).
+      if (xenon_use_aes_ni) {
+        cflags += [
+          "-maes",
+          "-mpclmul",
+        ]
+      }
+    }
+  }
+}
+
+# Exposes Xenon's GN configuration to C++ as BUILDFLAG(...) macros.
+#
+# Usage:
+#   #include "build/config/xenon/xenon_buildflags.h"
+#   #if BUILDFLAG(XENON_PRIVACY_HARDENING)
+#   ...
+#   #endif
+#
+# Targets that consult these flags must add a dependency on
+# "//build/config/xenon:buildflags".
+buildflag_header("buildflags") {
+  header = "xenon_buildflags.h"
+  header_dir = "build/config/xenon"
+
+  flags = [
+    "IS_XENON=$is_xenon",
+    "XENON_DISABLE_GOOGLE_SERVICES=$xenon_disable_google_services",
+    "XENON_PRIVACY_HARDENING=$xenon_privacy_hardening",
+    "XENON_ENABLE_CUSTOMIZATION_UI=$xenon_enable_customization_ui",
+  ]
+}

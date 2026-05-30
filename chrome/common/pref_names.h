@@ -136,6 +136,14 @@ inline constexpr char kLastProfileResetTimestamp[] =
 inline constexpr char kNewTabPageLocationOverride[] =
     "newtab_page_location_override";
 
+// Xenon: user-configurable custom start / new tab page. When
+// |kXenonNewTabPageEnabled| is true and |kXenonNewTabPageUrl| is non-empty, the
+// new tab page is redirected to that URL (which may be an http(s) URL or a
+// local file:// path to a custom HTML file). The enterprise
+// |kNewTabPageLocationOverride| policy, if set, takes precedence.
+inline constexpr char kXenonNewTabPageEnabled[] = "xenon.new_tab_page.enabled";
+inline constexpr char kXenonNewTabPageUrl[] = "xenon.new_tab_page.url";
+
 // An integer that keeps track of the profile icon version. This allows us to
 // determine the state of the profile icon for icon format changes.
 inline constexpr char kProfileIconVersion[] = "profile.icon_version";
