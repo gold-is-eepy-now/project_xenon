@@ -8,8 +8,15 @@ port_commit        = 8bb66f1b8cc8ef9a27b717284ddd6d7db5632a15
 port_commit_date   = 2026-05-20
 port_chromium_ver  = 148.0.7778.178
 xenon_chromium_ver = 150.0.7866.0
-patch_count        = 1565
+patch_count        = 1454
 fetched_on         = 2026-05-30
+
+# Migration progress: patches converted from patch-* form into in-tree
+# BUILDFLAG(IS_BSD) / is_bsd gates against 150.x are removed from patches/.
+#   base bucket: 111 migrated in-tree, 6 deferred (need manual 150 rebase).
+# Re-running fetch_port_patches.sh restores the FULL upstream set (1565) from
+# the pinned commit, so nothing is lost; the count above reflects the
+# not-yet-migrated remainder.
 
 # NOTE: The vendored patches target Chromium 148.0.7778.178, while this tree is
 # at 150.0.7866.0. They are a reference snapshot and will NOT all apply cleanly
