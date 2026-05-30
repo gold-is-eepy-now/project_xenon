@@ -70,5 +70,6 @@ buildflag_header("buildflags") {
     "IS_XENON=$is_xenon",
     "XENON_DISABLE_GOOGLE_SERVICES=$xenon_disable_google_services",
     "XENON_PRIVACY_HARDENING=$xenon_privacy_hardening",
+    "XENON_ENABLE_CUSTOMIZATION_UI=$xenon_enable_customization_ui",
   ]
 }

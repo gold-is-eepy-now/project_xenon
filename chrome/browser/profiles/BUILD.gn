@@ -78,6 +78,7 @@ source_set("misc") {
     ":profile_manager",
     ":profile_util",
     "//base",
+    "//build/config/xenon:buildflags",
     "//chrome/app:branded_strings",
     "//chrome/app:generated_resources",
     "//chrome/browser:browser_process",
