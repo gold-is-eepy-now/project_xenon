@@ -11,6 +11,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/logging.h"
 #include "base/notreached.h"
@@ -22,7 +23,6 @@
 #include "extensions/browser/api/declarative_net_request/indexed_rule.h"
 #include "extensions/common/api/declarative_net_request.h"
 #include "extensions/common/api/declarative_net_request/constants.h"
-#include "extensions/common/api/declarative_net_request/test_utils.h"
 #include "url/gurl.h"
 
 namespace extensions::declarative_net_request {
@@ -505,9 +505,29 @@ class DNRJsonRuleOutputStream : public subresource_filter::RuleOutputStream {
 
     switch (write_type_) {
       case filter_list_converter::kExtension: {
-        TestRulesetInfo info(kRulesetID, kJSONRulesFilename,
-                             output_rules_list_.Clone());
-        WriteManifestAndRuleset(output_path_, info, {} /* hosts */);
+        if (!base::CreateDirectory(output_path_)) {
+          return false;
+        }
+        base::Value::Dict manifest;
+        manifest.Set("manifest_version", 3);
+        manifest.Set("name", "Filter list converter output");
+        manifest.Set("version", "1.0");
+        base::Value::List permissions;
+        permissions.Append("declarativeNetRequest");
+        manifest.Set("permissions", std::move(permissions));
+        base::Value::Dict dnr;
+        base::Value::List rulesets;
+        base::Value::Dict ruleset;
+        ruleset.Set("id", kRulesetID);
+        ruleset.Set("enabled", true);
+        ruleset.Set("path", kJSONRulesFilename);
+        rulesets.Append(std::move(ruleset));
+        dnr.Set("rule_resources", std::move(rulesets));
+        manifest.Set("declarative_net_request", std::move(dnr));
+        JSONFileValueSerializer(output_path_.AppendASCII("manifest.json"))
+            .Serialize(manifest);
+        JSONFileValueSerializer(output_path_.AppendASCII(kJSONRulesFilename))
+            .Serialize(output_rules_list_);
         break;
       }
       case filter_list_converter::kJSONRuleset:
