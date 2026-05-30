@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//extensions/buildflags/buildflags.gni")
+
 if (is_android) {
   import("//build/config/android/rules.gni")
   import("//third_party/jni_zero/jni_zero.gni")
@@ -191,6 +193,33 @@ source_set("privacy") {
     "//components/prefs",
     "//components/spellcheck/browser",
   ]
+
+  if (enable_extensions) {
+    public += [
+      "shields/shields_prefs.h",
+      "shields/shields_service.h",
+      "shields/shields_service_factory.h",
+      "shields/shields_ui_controller.h",
+      "shields/shields_url_loader_throttle.h",
+    ]
+    sources += [
+      "shields/shields_prefs.cc",
+      "shields/shields_service.cc",
+      "shields/shields_service_factory.cc",
+      "shields/shields_ui_controller.cc",
+      "shields/shields_url_loader_throttle.cc",
+    ]
+    public_deps += [ "//extensions/browser" ]
+    deps += [
+      "//extensions/browser/api/declarative_net_request/filter_list_converter:support",
+      "//extensions/common",
+      "//extensions/common/api",
+      "//net",
+      "//services/network/public/cpp",
+      "//third_party/blink/public:blink_headers",
+      "//url",
+    ]
+  }
 }
 
 if (is_android) {

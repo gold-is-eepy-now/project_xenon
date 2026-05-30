@@ -144,6 +144,8 @@
 #include "chrome/browser/preloading/preloading_utils.h"
 #include "chrome/browser/preloading/prerender/prerender_web_contents_delegate.h"
 #include "chrome/browser/preloading/search_preload/search_preload_features.h"
+#include "chrome/browser/privacy/shields/shields_service_factory.h"
+#include "chrome/browser/privacy/shields/shields_url_loader_throttle.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_io_data.h"
@@ -6092,6 +6094,11 @@ ChromeContentBrowserClient::CreateURLLoaderThrottles(
       safe_browsing_throttle) {
     result.push_back(std::move(safe_browsing_throttle));
   }
+#endif
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  result.push_back(std::make_unique<privacy::shields::ShieldsURLLoaderThrottle>(
+      privacy::shields::ShieldsServiceFactory::GetForProfile(profile)));
 #endif
 
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
