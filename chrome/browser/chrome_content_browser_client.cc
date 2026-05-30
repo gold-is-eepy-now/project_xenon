@@ -53,6 +53,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/config/chromebox_for_meetings/buildflags.h"  // PLATFORM_CFM
+#include "build/config/xenon/xenon_buildflags.h"
 #include "chrome/browser/after_startup_task_utils.h"
 #include "chrome/browser/ai/ai_manager.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
@@ -866,6 +867,14 @@ bool HandleNewTabPageLocationOverride(
 
   std::string ntp_location =
       profile->GetPrefs()->GetString(prefs::kNewTabPageLocationOverride);
+#if BUILDFLAG(XENON_ENABLE_CUSTOMIZATION_UI)
+  // Xenon: if no enterprise policy override is set, fall back to the user's
+  // custom start page (a custom URL or a local file:// HTML file). Policy wins.
+  if (ntp_location.empty() &&
+      profile->GetPrefs()->GetBoolean(prefs::kXenonNewTabPageEnabled)) {
+    ntp_location = profile->GetPrefs()->GetString(prefs::kXenonNewTabPageUrl);
+  }
+#endif
   if (ntp_location.empty()) {
     return false;
   }
