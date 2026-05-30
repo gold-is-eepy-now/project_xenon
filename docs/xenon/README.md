@@ -18,6 +18,9 @@ Chromium does not officially provide.
 * The phased plan and current status are in [roadmap.md](roadmap.md).
 * The analysis of what FreeBSD support requires (and why it is currently
   out-of-tree) is in [freebsd_support_gaps.md](freebsd_support_gaps.md).
+* How to build Xenon on FreeBSD (in-tree support + remaining patches + the
+  `xenon_*` args) is in
+  [../freebsd/xenon_build_instructions.md](../freebsd/xenon_build_instructions.md).
 
 ## Design principles
 

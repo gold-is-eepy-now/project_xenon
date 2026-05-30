@@ -3,6 +3,13 @@
 There are instructions for other platforms linked from the
 [get the code](../get_the_code.md) page.
 
+*** promo
+**Building the Xenon fork (not stock Chromium)?** See
+[Building Xenon on FreeBSD](./xenon_build_instructions.md), which layers the
+Xenon-specific steps (in-tree FreeBSD support, the remaining vendored patches,
+and the `xenon_*` GN args) on top of this guide.
+***
+
 [TOC]
 
 *** note
