@@ -173,6 +173,9 @@ class MockPage : public side_panel::mojom::CustomizeChromePage {
            bool managed,
            bool visible));
   MOCK_METHOD(void,
+              SetNtpPrivacyFirstSettings,
+              (side_panel::mojom::NtpPrivacyFirstSettingsPtr settings));
+  MOCK_METHOD(void,
               SetMostVisitedSettings,
               (const std::vector<ntp_tiles::TileType>&,
                bool,

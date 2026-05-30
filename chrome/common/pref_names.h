@@ -1706,6 +1706,23 @@ inline constexpr char kNtpMicrosoftFilesModuleRetryAfterTime[] =
 inline constexpr char kNtpModulesOrder[] = "NewTabPage.ModulesOrder";
 // Whether NTP modules are visible.
 inline constexpr char kNtpModulesVisible[] = "NewTabPage.ModulesVisible";
+// Whether the NTP should default to local-only surfaces and suppress remote
+// widgets unless each remote widget is explicitly re-enabled.
+inline constexpr char kNtpPrivacyFirstMode[] = "NewTabPage.PrivacyFirstMode";
+// Remote NTP widgets that can be explicitly re-enabled while privacy-first mode
+// is active.
+inline constexpr char kNtpPrivacyFirstDoodlesEnabled[] =
+    "NewTabPage.PrivacyFirst.DoodlesEnabled";
+inline constexpr char kNtpPrivacyFirstOneGoogleBarEnabled[] =
+    "NewTabPage.PrivacyFirst.OneGoogleBarEnabled";
+inline constexpr char kNtpPrivacyFirstPromosEnabled[] =
+    "NewTabPage.PrivacyFirst.PromosEnabled";
+inline constexpr char kNtpPrivacyFirstMicrosoftAuthEnabled[] =
+    "NewTabPage.PrivacyFirst.MicrosoftAuthEnabled";
+inline constexpr char kNtpPrivacyFirstRemoteSuggestionsEnabled[] =
+    "NewTabPage.PrivacyFirst.RemoteSuggestionsEnabled";
+inline constexpr char kNtpPrivacyFirstWallpaperSearchEnabled[] =
+    "NewTabPage.PrivacyFirst.WallpaperSearchEnabled";
 // Whether the AI action chips are visible in the NTP.
 inline constexpr char kNtpToolChipsVisible[] = "NewTabPage.ToolChipsVisible";
 // Dictionary of number of times a module has loaded.
@@ -2304,7 +2321,6 @@ inline constexpr char kReportingUsers[] = "reporting_users";
 inline constexpr char kArcAppInstallEventLoggingEnabled[] =
     "arc.app_install_event_logging_enabled";
 
-
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // String which specifies where to store the disk cache.
@@ -2887,7 +2903,6 @@ inline constexpr char kCaretBrowsingEnabled[] =
 // is toggled silently by the keyboard shortcut.
 inline constexpr char kShowCaretBrowsingDialog[] =
     "settings.a11y.caretbrowsing.show_dialog";
-
 
 #if BUILDFLAG(IS_ANDROID)
 // Boolean pref controlling whether immersive AR sessions are enabled

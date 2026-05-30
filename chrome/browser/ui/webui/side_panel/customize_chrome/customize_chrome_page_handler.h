@@ -145,6 +145,10 @@ class CustomizeChromePageHandler
   void SetModulesVisible(bool visible) override;
   void SetModuleDisabled(const std::string& module_id, bool disabled) override;
   void UpdateModulesSettings() override;
+  void SetNtpPrivacyFirstMode(bool enabled) override;
+  void SetNtpPrivacyFirstRemoteWidgetEnabled(const std::string& widget_id,
+                                             bool enabled) override;
+  void UpdateNtpPrivacyFirstSettings() override;
   void UpdateScrollToSection() override;
   void UpdateAttachedTabState() override;
   void UpdateNtpManagedByName() override;

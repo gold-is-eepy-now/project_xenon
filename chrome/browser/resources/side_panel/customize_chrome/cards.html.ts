@@ -19,6 +19,34 @@ export function getHtml(this: CardsElement) {
       @change="${this.onShowChange_}">
   </cr-toggle>
 </div>
+<hr class="sp-hr">
+<div class="card">
+  <cr-checkbox class="card-checkbox label-first"
+      ?checked="${this.privacyFirstSettings_.enabled}"
+      title="Private local start page"
+      @change="${this.onPrivacyFirstModeChange_}">
+    <customize-chrome-button-label class="card-label"
+        label="Private local start page"
+        label-description="Keeps the New Tab Page local by suppressing server-backed widgets until you re-enable them below.">
+    </customize-chrome-button-label>
+  </cr-checkbox>
+</div>
+<cr-collapse ?opened="${this.privacyFirstSettings_.enabled}"
+    ?no-animation="${!this.initialized_}">
+  ${this.privacyFirstWidgets_.map(widget => html`
+    <div class="card">
+      <cr-checkbox class="card-checkbox label-first"
+          data-widget-id="${widget.id}" data-property="${widget.property}"
+          ?checked="${this.privacyFirstSettings_[widget.property]}"
+          title="${widget.label}" @change="${this.onPrivacyRemoteWidgetChange_}">
+        <customize-chrome-button-label class="card-label"
+            label="${widget.label}" label-description="${widget.description}">
+        </customize-chrome-button-label>
+      </cr-checkbox>
+    </div>
+  `)}
+</cr-collapse>
+
 <div id="cards">
   <cr-collapse ?opened="${this.show_}" ?no-animation="${!this.initialized_}">
     <hr class="sp-hr">
