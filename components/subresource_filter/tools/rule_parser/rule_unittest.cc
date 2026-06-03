@@ -219,6 +219,8 @@ TEST(RuleTest, GetAnchorsIfSupported) {
       {"div", kGlobal, kSlow, {}, {}},  // Global tag selector is too slow.
       {"", kGlobal, kSlow, {}, {}},
       {"@rule", kGlobal, kSlow, {}, {}},
+      {".ad{display:block}", kGlobal, kSlow, {}, {}},
+      {".ad<script>", kGlobal, kSlow, {}, {}},
 
       // Site-specific rules.
       {"#ad", kSpecific, kFast, {}, {"ad"}},

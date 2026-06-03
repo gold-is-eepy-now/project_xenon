@@ -183,6 +183,7 @@ class FixedPolicySubresourceFilter : public WebDocumentSubresourceFilter {
                         std::vector<std::string_view>& out_selectors) override {
   }
   bool IsDryRun() override { return false; }
+  bool IsFilteringDisabledForDocument() override { return false; }
   uint64_t GetRulesetId() const override { return 0; }
 
   void ReportDisallowedLoad() override { ++*filtered_load_counter_; }

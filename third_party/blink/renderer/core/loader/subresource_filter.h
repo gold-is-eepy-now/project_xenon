@@ -20,6 +20,7 @@
 
 namespace blink {
 
+class Document;
 class ExecutionContext;
 class KURL;
 
@@ -44,6 +45,13 @@ class CORE_EXPORT SubresourceFilter final
                     network::mojom::RequestDestination,
                     subresource_filter::ScopedRule* out_rule);
 
+  enum class CosmeticFilteringMilestone { kDomContentLoaded, kLoadComplete };
+
+  // Schedules a browser-mediated cosmetic filtering pass for this document. The
+  // pass compiles applicable selectors into a style sheet and never evaluates
+  // filter-list supplied JavaScript.
+  void ScheduleCosmeticFiltering(Document&, CosmeticFilteringMilestone);
+
   void Trace(Visitor*) const;
 
  private:
@@ -51,9 +59,17 @@ class CORE_EXPORT SubresourceFilter final
                   WebDocumentSubresourceFilter::LoadPolicy);
   void ReportLoadAsync(const KURL& resource_url,
                        WebDocumentSubresourceFilter::LoadPolicy);
+  void ApplyCosmeticFiltering(Document*, CosmeticFilteringMilestone);
 
   Member<ExecutionContext> execution_context_;
   std::unique_ptr<WebDocumentSubresourceFilter> subresource_filter_;
+
+  uint64_t cosmetic_ruleset_id_ = 0;
+  bool cosmetic_filtering_scheduled_ = false;
+  bool cosmetic_filtering_applied_ = false;
+  unsigned cosmetic_selector_count_ = 0;
+  unsigned cosmetic_hidden_element_count_ = 0;
+  bool cosmetic_selector_cap_hit_ = false;
 
   struct ResourceCheckResult {
     WebDocumentSubresourceFilter::LoadPolicy load_policy;
