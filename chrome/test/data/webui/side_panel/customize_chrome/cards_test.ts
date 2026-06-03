@@ -43,6 +43,15 @@ suite('CardsTest', () => {
       modulesVisible: boolean) {
     callbackRouterRemote.setModulesSettings(
         modules, modulesManaged, modulesVisible);
+    callbackRouterRemote.setNtpPrivacyFirstSettings({
+      enabled: false,
+      doodlesEnabled: false,
+      oneGoogleBarEnabled: false,
+      promosEnabled: false,
+      microsoftAuthEnabled: false,
+      remoteSuggestionsEnabled: false,
+      wallpaperSearchEnabled: false,
+    });
 
     customizeCards = document.createElement('customize-chrome-cards');
     document.body.appendChild(customizeCards);
@@ -55,7 +64,7 @@ suite('CardsTest', () => {
   }
 
   function getCollapseElement() {
-    return customizeCards.shadowRoot.querySelector('cr-collapse')!;
+    return customizeCards.shadowRoot.querySelector('#cards cr-collapse')!;
   }
 
   function getCardsMap(): Map<string, HTMLElement> {

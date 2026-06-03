@@ -272,6 +272,8 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       "modulesEnabled",
       ntp::HasModulesEnabled(module_id_details_,
                              IdentityManagerFactory::GetForProfile(profile_)));
+  source->AddBoolean("ntpPrivacyFirstMode", profile_->GetPrefs()->GetBoolean(
+                                                prefs::kNtpPrivacyFirstMode));
 
   source->AddBoolean("showDeviceThemeToggle",
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
@@ -291,15 +293,21 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
           base::FeatureList::IsEnabled(ntp_features::kNtpNextFeatures));
   source->AddBoolean("ntpNextDisablementEnabled",
                      ntp_features::kNtpNextDisablementParam.Get());
-  source->AddBoolean("wallpaperSearchEnabled", wallpaper_search_enabled);
+  const bool privacy_first_wallpaper_search_allowed =
+      !profile_->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstMode) ||
+      profile_->GetPrefs()->GetBoolean(
+          prefs::kNtpPrivacyFirstWallpaperSearchEnabled);
+  source->AddBoolean(
+      "wallpaperSearchEnabled",
+      wallpaper_search_enabled && privacy_first_wallpaper_search_allowed);
   source->AddBoolean(
       "wallpaperSearchInspirationCardEnabled",
-      wallpaper_search_enabled &&
+      wallpaper_search_enabled && privacy_first_wallpaper_search_allowed &&
           base::FeatureList::IsEnabled(
               ntp_features::kCustomizeChromeWallpaperSearchInspirationCard));
   source->AddBoolean(
       "wallpaperSearchButtonEnabled",
-      wallpaper_search_enabled &&
+      wallpaper_search_enabled && privacy_first_wallpaper_search_allowed &&
           base::FeatureList::IsEnabled(
               ntp_features::kCustomizeChromeWallpaperSearchButton));
   source->AddBoolean("imageErrorDetectionEnabled",

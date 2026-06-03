@@ -14,8 +14,55 @@ import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {getCss} from './cards.css.js';
 import {getHtml} from './cards.html.js';
 import {CustomizeChromeAction, recordCustomizeChromeAction} from './common.js';
-import type {ModuleSettings} from './customize_chrome.mojom-webui.js';
+import type {ModuleSettings, NtpPrivacyFirstSettings} from './customize_chrome.mojom-webui.js';
+
 import {CustomizeChromeApiProxy} from './customize_chrome_api_proxy.js';
+
+export interface PrivacyFirstWidget {
+  id: string;
+  property: keyof NtpPrivacyFirstSettings;
+  label: string;
+  description: string;
+}
+
+export const PRIVACY_FIRST_WIDGETS: PrivacyFirstWidget[] = [
+  {
+    id: 'doodles',
+    property: 'doodlesEnabled',
+    label: 'Doodles',
+    description: 'Fetch and show remote Google Doodles.',
+  },
+  {
+    id: 'oneGoogleBar',
+    property: 'oneGoogleBarEnabled',
+    label: 'One Google Bar',
+    description: 'Load the remote Google account bar.',
+  },
+  {
+    id: 'promos',
+    property: 'promosEnabled',
+    label: 'Promos',
+    description: 'Refresh and show server-backed promos.',
+  },
+  {
+    id: 'microsoftAuth',
+    property: 'microsoftAuthEnabled',
+    label: 'Microsoft auth modules',
+    description: 'Load Microsoft authentication widgets.',
+  },
+  {
+    id: 'remoteSuggestions',
+    property: 'remoteSuggestionsEnabled',
+    label: 'Remote file and calendar suggestions',
+    description: 'Load server-backed suggestion cards.',
+  },
+  {
+    id: 'wallpaperSearch',
+    property: 'wallpaperSearchEnabled',
+    label: 'Wallpaper search',
+    description: 'Allow remote wallpaper search requests.',
+  },
+];
 
 export interface CardsElement {
   $: {
@@ -52,16 +99,30 @@ export class CardsElement extends CrLitElement {
       managedByPolicy_: {type: Boolean},
 
       initialized_: {type: Boolean},
+
+      privacyFirstSettings_: {type: Object},
     };
   }
 
   protected accessor modules_: ModuleSettings[] = [];
   protected accessor show_: boolean = false;
   protected accessor managedByPolicy_: boolean = false;
+  protected readonly privacyFirstWidgets_: PrivacyFirstWidget[] =
+      PRIVACY_FIRST_WIDGETS;
+  protected accessor privacyFirstSettings_: NtpPrivacyFirstSettings = {
+    enabled: false,
+    doodlesEnabled: false,
+    oneGoogleBarEnabled: false,
+    promosEnabled: false,
+    microsoftAuthEnabled: false,
+    remoteSuggestionsEnabled: false,
+    wallpaperSearchEnabled: false,
+  };
 
   private apiProxy_: CustomizeChromeApiProxy =
       CustomizeChromeApiProxy.getInstance();
   private setModulesSettingsListenerId_: number|null = null;
+  private setNtpPrivacyFirstSettingsListenerId_: number|null = null;
   protected accessor initialized_: boolean = false;
 
   override connectedCallback() {
@@ -75,13 +136,42 @@ export class CardsElement extends CrLitElement {
               this.modules_ = modulesSettings;
               this.initialized_ = true;
             });
+    this.setNtpPrivacyFirstSettingsListenerId_ =
+        this.apiProxy_.callbackRouter.setNtpPrivacyFirstSettings.addListener(
+            settings => {
+              this.privacyFirstSettings_ = settings;
+            });
     this.apiProxy_.handler.updateModulesSettings();
+    this.apiProxy_.handler.updateNtpPrivacyFirstSettings();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.apiProxy_.callbackRouter.removeListener(
         this.setModulesSettingsListenerId_!);
+    this.apiProxy_.callbackRouter.removeListener(
+        this.setNtpPrivacyFirstSettingsListenerId_!);
+  }
+
+  protected onPrivacyFirstModeChange_(e: CustomEvent<boolean>) {
+    this.privacyFirstSettings_ = {
+      ...this.privacyFirstSettings_,
+      enabled: e.detail,
+    };
+    this.apiProxy_.handler.setNtpPrivacyFirstMode(e.detail);
+  }
+
+  protected onPrivacyRemoteWidgetChange_(e: CustomEvent<boolean>) {
+    const target = e.currentTarget as HTMLElement;
+    const widgetId = target.dataset['widgetId']!;
+    const property =
+        target.dataset['property']! as keyof NtpPrivacyFirstSettings;
+    this.privacyFirstSettings_ = {
+      ...this.privacyFirstSettings_,
+      [property]: e.detail,
+    };
+    this.apiProxy_.handler.setNtpPrivacyFirstRemoteWidgetEnabled(
+        widgetId, e.detail);
   }
 
   private setShow_(show: boolean) {

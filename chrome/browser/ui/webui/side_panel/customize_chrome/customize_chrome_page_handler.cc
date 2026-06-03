@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_page_handler.h"
 
 #include <algorithm>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -67,6 +68,35 @@
 #include "ui/shell_dialogs/selected_file_info.h"
 
 namespace {
+
+constexpr char kPrivacyWidgetDoodles[] = "doodles";
+constexpr char kPrivacyWidgetOneGoogleBar[] = "oneGoogleBar";
+constexpr char kPrivacyWidgetPromos[] = "promos";
+constexpr char kPrivacyWidgetMicrosoftAuth[] = "microsoftAuth";
+constexpr char kPrivacyWidgetRemoteSuggestions[] = "remoteSuggestions";
+constexpr char kPrivacyWidgetWallpaperSearch[] = "wallpaperSearch";
+
+const char* GetPrivacyWidgetPrefName(const std::string& widget_id) {
+  if (widget_id == kPrivacyWidgetDoodles) {
+    return prefs::kNtpPrivacyFirstDoodlesEnabled;
+  }
+  if (widget_id == kPrivacyWidgetOneGoogleBar) {
+    return prefs::kNtpPrivacyFirstOneGoogleBarEnabled;
+  }
+  if (widget_id == kPrivacyWidgetPromos) {
+    return prefs::kNtpPrivacyFirstPromosEnabled;
+  }
+  if (widget_id == kPrivacyWidgetMicrosoftAuth) {
+    return prefs::kNtpPrivacyFirstMicrosoftAuthEnabled;
+  }
+  if (widget_id == kPrivacyWidgetRemoteSuggestions) {
+    return prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled;
+  }
+  if (widget_id == kPrivacyWidgetWallpaperSearch) {
+    return prefs::kNtpPrivacyFirstWallpaperSearchEnabled;
+  }
+  return nullptr;
+}
 
 void OpenWebPage(Profile* profile, const GURL& url) {
   NavigateParams navigate_params(profile, url, ui::PAGE_TRANSITION_LINK);
@@ -173,6 +203,20 @@ CustomizeChromePageHandler::CustomizeChromePageHandler(
       prefs::kNtpToolChipsVisible,
       base::BindRepeating(&CustomizeChromePageHandler::UpdateToolChipsSettings,
                           base::Unretained(this)));
+
+  for (const char* pref_name :
+       {prefs::kNtpPrivacyFirstMode, prefs::kNtpPrivacyFirstDoodlesEnabled,
+        prefs::kNtpPrivacyFirstOneGoogleBarEnabled,
+        prefs::kNtpPrivacyFirstPromosEnabled,
+        prefs::kNtpPrivacyFirstMicrosoftAuthEnabled,
+        prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled,
+        prefs::kNtpPrivacyFirstWallpaperSearchEnabled}) {
+    pref_change_registrar_.Add(
+        pref_name,
+        base::BindRepeating(
+            &CustomizeChromePageHandler::UpdateNtpPrivacyFirstSettings,
+            base::Unretained(this)));
+  }
 
   ntp_custom_background_service_observation_.Observe(
       ntp_custom_background_service_.get());
@@ -591,6 +635,39 @@ void CustomizeChromePageHandler::UpdateFooterSettings() {
       profile_->GetPrefs()->GetBoolean(
           prefs::kNTPFooterExtensionAttributionEnabled),
       std::move(management_notice_state));
+}
+
+void CustomizeChromePageHandler::SetNtpPrivacyFirstMode(bool enabled) {
+  profile_->GetPrefs()->SetBoolean(prefs::kNtpPrivacyFirstMode, enabled);
+}
+
+void CustomizeChromePageHandler::SetNtpPrivacyFirstRemoteWidgetEnabled(
+    const std::string& widget_id,
+    bool enabled) {
+  const char* pref_name = GetPrivacyWidgetPrefName(widget_id);
+  if (!pref_name) {
+    return;
+  }
+  profile_->GetPrefs()->SetBoolean(pref_name, enabled);
+}
+
+void CustomizeChromePageHandler::UpdateNtpPrivacyFirstSettings() {
+  auto settings = side_panel::mojom::NtpPrivacyFirstSettings::New();
+  settings->enabled =
+      profile_->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstMode);
+  settings->doodles_enabled =
+      profile_->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstDoodlesEnabled);
+  settings->one_google_bar_enabled = profile_->GetPrefs()->GetBoolean(
+      prefs::kNtpPrivacyFirstOneGoogleBarEnabled);
+  settings->promos_enabled =
+      profile_->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstPromosEnabled);
+  settings->microsoft_auth_enabled = profile_->GetPrefs()->GetBoolean(
+      prefs::kNtpPrivacyFirstMicrosoftAuthEnabled);
+  settings->remote_suggestions_enabled = profile_->GetPrefs()->GetBoolean(
+      prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled);
+  settings->wallpaper_search_enabled = profile_->GetPrefs()->GetBoolean(
+      prefs::kNtpPrivacyFirstWallpaperSearchEnabled);
+  page_->SetNtpPrivacyFirstSettings(std::move(settings));
 }
 
 void CustomizeChromePageHandler::SetModulesVisible(bool visible) {

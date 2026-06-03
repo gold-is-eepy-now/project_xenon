@@ -80,6 +80,12 @@ using side_panel::customize_chrome::mojom::WallpaperSearchStatus;
 
 namespace {
 
+bool IsPrivacyFirstWallpaperSearchAllowed(Profile* profile) {
+  return !profile->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstMode) ||
+         profile->GetPrefs()->GetBoolean(
+             prefs::kNtpPrivacyFirstWallpaperSearchEnabled);
+}
+
 const char kGstaticBaseURL[] =
     "https://www.gstatic.com/chrome-wallpaper-search/";
 // Calculate new dimensions given the width and height that will make the
@@ -186,7 +192,9 @@ WallpaperSearchHandler::~WallpaperSearchHandler() {
 
   if (!log_entries_.empty()) {
     auto& [log_entry, render_time] = log_entries_.back();
-    auto* quality = log_entry->log_ai_data_request()->mutable_wallpaper_search()->mutable_quality();
+    auto* quality = log_entry->log_ai_data_request()
+                        ->mutable_wallpaper_search()
+                        ->mutable_quality();
     quality->set_final_request_in_session(true);
     if (render_time.has_value()) {
       quality->set_complete_latency_ms(
@@ -209,6 +217,9 @@ WallpaperSearchHandler::~WallpaperSearchHandler() {
 void WallpaperSearchHandler::GetDescriptors(GetDescriptorsCallback callback) {
   callback =
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback), nullptr);
+  if (!IsPrivacyFirstWallpaperSearchAllowed(profile_)) {
+    return;
+  }
 
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation(
@@ -272,6 +283,9 @@ void WallpaperSearchHandler::GetDescriptors(GetDescriptorsCallback callback) {
 void WallpaperSearchHandler::GetInspirations(GetInspirationsCallback callback) {
   callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback),
                                                          std::nullopt);
+  if (!IsPrivacyFirstWallpaperSearchAllowed(profile_)) {
+    return;
+  }
 
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation(
@@ -336,6 +350,12 @@ void WallpaperSearchHandler::GetWallpaperSearchResults(
     side_panel::customize_chrome::mojom::ResultDescriptorsPtr
         result_descriptors,
     GetWallpaperSearchResultsCallback callback) {
+  if (!IsPrivacyFirstWallpaperSearchAllowed(profile_)) {
+    std::move(callback).Run(WallpaperSearchStatus::kError,
+                            std::vector<WallpaperSearchResultPtr>());
+    return;
+  }
+
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
   if (!identity_manager ||
       !identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
@@ -542,12 +562,10 @@ void WallpaperSearchHandler::SetUserFeedback(UserFeedback selected_option) {
   optimization_guide::proto::UserFeedback user_feedback =
       OptimizationFeedbackFromWallpaperSearchFeedback(selected_option);
   if (!log_entries_.empty()) {
-    auto* quality =
-        log_entries_.back()
-            .first
-            ->log_ai_data_request()
-            ->mutable_wallpaper_search()
-            ->mutable_quality();
+    auto* quality = log_entries_.back()
+                        .first->log_ai_data_request()
+                        ->mutable_wallpaper_search()
+                        ->mutable_quality();
     if (quality) {
       quality->set_user_feedback(user_feedback);
     }
@@ -966,8 +984,9 @@ void WallpaperSearchHandler::OnWallpaperSearchResultsRetrieved(
   if (!log_entries_.empty()) {
     auto& [prev_log_entry, render_time] = log_entries_.back();
     if (render_time.has_value()) {
-      prev_log_entry
-          ->log_ai_data_request()->mutable_wallpaper_search()->mutable_quality()
+      prev_log_entry->log_ai_data_request()
+          ->mutable_wallpaper_search()
+          ->mutable_quality()
           ->set_complete_latency_ms(
               (base::Time::Now() - *render_time).InMilliseconds());
     }
@@ -995,12 +1014,10 @@ void WallpaperSearchHandler::OnWallpaperSearchResultsRetrieved(
       ->clear_images();
   log_entries_.emplace_back(std::move(log_entry), std::nullopt);
   if (!log_entries_.empty()) {
-    auto* quality =
-        log_entries_.back()
-            .first
-            ->log_ai_data_request()
-            ->mutable_wallpaper_search()
-            ->mutable_quality();
+    auto* quality = log_entries_.back()
+                        .first->log_ai_data_request()
+                        ->mutable_wallpaper_search()
+                        ->mutable_quality();
     quality->set_session_id(session_id_);
     quality->set_index(log_entries_.size() - 1);
     // We will set this to true for the respective log entry when the side panel
@@ -1038,11 +1055,10 @@ void WallpaperSearchHandler::OnWallpaperSearchResultsRetrieved(
     optimization_guide::proto::WallpaperSearchImageQuality* image_quality =
         nullptr;
     if (!log_entries_.empty()) {
-      auto* quality =
-          log_entries_.back()
-              .first->log_ai_data_request()
-              ->mutable_wallpaper_search()
-              ->mutable_quality();
+      auto* quality = log_entries_.back()
+                          .first->log_ai_data_request()
+                          ->mutable_wallpaper_search()
+                          ->mutable_quality();
       image_quality = quality->add_images_quality();
       image_quality->set_image_id(image.image_id());
       // We default to false and will flip if image was previewed or selected.

@@ -158,6 +158,12 @@ function recordShowBrowserPromosResult(result: ShowNtpPromosResult) {
       ShowNtpPromosResult.MAX_VALUE + 1);
 }
 
+function getLoadTimeBoolean(
+    name: string, defaultValue: boolean = false): boolean {
+  return loadTimeData.valueExists(name) ? loadTimeData.getBoolean(name) :
+                                         defaultValue;
+}
+
 const AppElementBase = HelpBubbleMixinLit(CrLitElement);
 
 export interface AppElement {
@@ -262,6 +268,13 @@ export class AppElement extends AppElementBase {
       shortcutsEnabled_: {type: Boolean},
       middleSlotPromoEnabled_: {type: Boolean},
       modulesEnabled_: {type: Boolean},
+      ntpPrivacyFirstMode_: {type: Boolean},
+      ntpPrivacyFirstDoodlesEnabled_: {type: Boolean},
+      ntpPrivacyFirstOneGoogleBarEnabled_: {type: Boolean},
+      ntpPrivacyFirstPromosEnabled_: {type: Boolean},
+      ntpPrivacyFirstMicrosoftAuthEnabled_: {type: Boolean},
+      ntpPrivacyFirstRemoteSuggestionsEnabled_: {type: Boolean},
+      ntpPrivacyFirstWallpaperSearchEnabled_: {type: Boolean},
 
       browserPromoType_: {type: String},
       browserPromoLimit_: {type: Number},
@@ -397,6 +410,20 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('middleSlotPromoEnabled');
   protected accessor modulesEnabled_: boolean =
       loadTimeData.getBoolean('modulesEnabled');
+  protected accessor ntpPrivacyFirstMode_: boolean =
+      getLoadTimeBoolean('ntpPrivacyFirstMode');
+  protected accessor ntpPrivacyFirstDoodlesEnabled_: boolean =
+      getLoadTimeBoolean('ntpPrivacyFirstDoodlesEnabled');
+  protected accessor ntpPrivacyFirstOneGoogleBarEnabled_: boolean =
+      getLoadTimeBoolean('ntpPrivacyFirstOneGoogleBarEnabled');
+  protected accessor ntpPrivacyFirstPromosEnabled_: boolean =
+      getLoadTimeBoolean('ntpPrivacyFirstPromosEnabled');
+  protected accessor ntpPrivacyFirstMicrosoftAuthEnabled_: boolean =
+      getLoadTimeBoolean('ntpPrivacyFirstMicrosoftAuthEnabled');
+  protected accessor ntpPrivacyFirstRemoteSuggestionsEnabled_: boolean =
+      getLoadTimeBoolean('ntpPrivacyFirstRemoteSuggestionsEnabled');
+  protected accessor ntpPrivacyFirstWallpaperSearchEnabled_: boolean =
+      getLoadTimeBoolean('ntpPrivacyFirstWallpaperSearchEnabled');
   protected accessor browserPromoType_: string =
       loadTimeData.getString('browserPromoType');
   protected accessor browserPromoLimit_: number =
@@ -992,6 +1019,10 @@ export class AppElement extends AppElementBase {
   }
 
   protected computeShowWallpaperSearchButton_() {
+    if (this.ntpPrivacyFirstMode_ &&
+        !this.ntpPrivacyFirstWallpaperSearchEnabled_) {
+      return false;
+    }
     if (!this.wallpaperSearchButtonEnabled_) {
       return false;
     }
@@ -1254,6 +1285,9 @@ export class AppElement extends AppElementBase {
   }
 
   protected computeShowBrowserPromo_(): boolean {
+    if (this.ntpPrivacyFirstMode_ && !this.ntpPrivacyFirstPromosEnabled_) {
+      return false;
+    }
     return !this.modulesEnabled_ ||
         (this.modulesLoadedStatus_ !==
              ModuleLoadStatus.MODULE_LOAD_IN_PROGRESS &&

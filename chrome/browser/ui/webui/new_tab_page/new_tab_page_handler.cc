@@ -120,6 +120,15 @@
 
 namespace {
 
+bool IsPrivacyFirstModeEnabled(Profile* profile) {
+  return profile->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstMode);
+}
+
+bool IsPrivacyFirstRemoteAllowed(Profile* profile, const char* pref_name) {
+  return !IsPrivacyFirstModeEnabled(profile) ||
+         profile->GetPrefs()->GetBoolean(pref_name);
+}
+
 const int64_t kMaxDownloadBytes = 1024 * 1024;
 
 constexpr char kDisableInteraction[] = "disable";
@@ -600,6 +609,15 @@ NewTabPageHandler::NewTabPageHandler(
       base::BindRepeating(&NewTabPageHandler::UpdateDisabledModules,
                           base::Unretained(this)));
 
+  for (const char* pref_name : {prefs::kNtpPrivacyFirstMode,
+                                prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled,
+                                prefs::kNtpPrivacyFirstMicrosoftAuthEnabled}) {
+    pref_change_registrar_.Add(
+        pref_name,
+        base::BindRepeating(&NewTabPageHandler::UpdateModulesLoadable,
+                            base::Unretained(this)));
+  }
+
   pref_change_registrar_.Add(
       prefs::kSeedColorChangeCount,
       base::BindRepeating(&NewTabPageHandler::MaybeShowWebstoreToast,
@@ -646,6 +664,17 @@ void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterListPref(prefs::kNtpHiddenModules);
   registry->RegisterListPref(prefs::kNtpModulesOrder);
   registry->RegisterBooleanPref(prefs::kNtpModulesVisible, true);
+  registry->RegisterBooleanPref(prefs::kNtpPrivacyFirstMode, false);
+  registry->RegisterBooleanPref(prefs::kNtpPrivacyFirstDoodlesEnabled, false);
+  registry->RegisterBooleanPref(prefs::kNtpPrivacyFirstOneGoogleBarEnabled,
+                                false);
+  registry->RegisterBooleanPref(prefs::kNtpPrivacyFirstPromosEnabled, false);
+  registry->RegisterBooleanPref(prefs::kNtpPrivacyFirstMicrosoftAuthEnabled,
+                                false);
+  registry->RegisterBooleanPref(prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled,
+                                false);
+  registry->RegisterBooleanPref(prefs::kNtpPrivacyFirstWallpaperSearchEnabled,
+                                false);
   registry->RegisterBooleanPref(prefs::kNtpToolChipsVisible, true);
   registry->RegisterIntegerPref(prefs::kNtpCustomizeChromeButtonOpenCount, 0);
   registry->RegisterDictionaryPref(prefs::kNtpModulesInteractedCountDict);
@@ -690,6 +719,12 @@ void NewTabPageHandler::GetMostVisitedSettings(
 }
 
 void NewTabPageHandler::GetDoodle(GetDoodleCallback callback) {
+  if (!IsPrivacyFirstRemoteAllowed(profile_,
+                                   prefs::kNtpPrivacyFirstDoodlesEnabled)) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
   bool enable_animated_logo =
       base::FeatureList::IsEnabled(ntp_features::kNtpAnimatedDoodles) &&
       !gfx::Animation::PrefersReducedMotion();
@@ -704,6 +739,12 @@ void NewTabPageHandler::GetDoodle(GetDoodleCallback callback) {
 }
 
 void NewTabPageHandler::UpdatePromoData() {
+  if (!IsPrivacyFirstRemoteAllowed(profile_,
+                                   prefs::kNtpPrivacyFirstPromosEnabled)) {
+    page_->SetPromo(nullptr);
+    return;
+  }
+
   if (promo_service_->promo_data().has_value()) {
     OnPromoDataUpdated();
   }
@@ -969,6 +1010,22 @@ void NewTabPageHandler::GetModulesOrder(GetModulesOrderCallback callback) {
 }
 
 void NewTabPageHandler::UpdateModulesLoadable() {
+  if (IsPrivacyFirstModeEnabled(profile_) &&
+      !profile_->GetPrefs()->GetBoolean(
+          prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled)) {
+    return;
+  }
+  if (microsoft_auth_service_ && IsPrivacyFirstModeEnabled(profile_) &&
+      !profile_->GetPrefs()->GetBoolean(
+          prefs::kNtpPrivacyFirstMicrosoftAuthEnabled)) {
+    SetModuleHidden(ntp_modules::kMicrosoftAuthenticationModuleId, true);
+    for (const auto& module_id :
+         ntp_modules::kMicrosoftAuthDependentModuleIds) {
+      SetModuleHidden(module_id, true);
+    }
+    page_->SetModulesLoadable();
+    return;
+  }
   if (!microsoft_auth_service_ || SyncMicrosoftModulesWithAuth()) {
     page_->SetModulesLoadable();
   }
@@ -1021,7 +1078,9 @@ void NewTabPageHandler::OnPromoRendered(double time,
   LogEvent(NTP_MIDDLE_SLOT_PROMO_SHOWN,
            base::Time::FromMillisecondsSinceUnixEpoch(time) -
                ntp_navigation_start_time_);
-  if (log_url.has_value() && log_url->is_valid()) {
+  if (IsPrivacyFirstRemoteAllowed(profile_,
+                                  prefs::kNtpPrivacyFirstPromosEnabled) &&
+      log_url.has_value() && log_url->is_valid()) {
     Fetch(*log_url, base::NullCallback());
   }
 }
@@ -1098,7 +1157,9 @@ void NewTabPageHandler::OnDoodleImageClicked(
   // We just ping the server to indicate a CTA image has been clicked.
   // This only happens when the the initial impression log response
   // contains an `interaction_log_url` field.
-  if (log_url.has_value()) {
+  if (IsPrivacyFirstRemoteAllowed(profile_,
+                                  prefs::kNtpPrivacyFirstDoodlesEnabled) &&
+      log_url.has_value()) {
     Fetch(*log_url, base::NullCallback());
   }
 }
@@ -1121,6 +1182,11 @@ void NewTabPageHandler::OnDoodleImageRendered(
       break;
     default:
       NOTREACHED();
+  }
+  if (!IsPrivacyFirstRemoteAllowed(profile_,
+                                   prefs::kNtpPrivacyFirstDoodlesEnabled)) {
+    std::move(callback).Run("", std::nullopt, "");
+    return;
   }
   Fetch(log_url,
         base::BindOnce(&NewTabPageHandler::OnLogFetchResult,
@@ -1159,7 +1225,10 @@ void NewTabPageHandler::OnDoodleShared(
                       .GoogleBaseURLValue())
                  .Resolve(query);
   // We just ping the server to indicate a doodle has been shared.
-  Fetch(url, base::NullCallback());
+  if (IsPrivacyFirstRemoteAllowed(profile_,
+                                  prefs::kNtpPrivacyFirstDoodlesEnabled)) {
+    Fetch(url, base::NullCallback());
+  }
 }
 
 void NewTabPageHandler::OnPromoLinkClicked() {
@@ -1210,6 +1279,12 @@ void NewTabPageHandler::OnPromoDataUpdated() {
           "NewTabPage.Promos.RequestLatency2.Failure", duration);
     }
     promo_load_start_time_ = std::nullopt;
+  }
+
+  if (!IsPrivacyFirstRemoteAllowed(profile_,
+                                   prefs::kNtpPrivacyFirstPromosEnabled)) {
+    page_->SetPromo(nullptr);
+    return;
   }
 
   const auto& data = promo_service_->promo_data();
@@ -1313,6 +1388,10 @@ void NewTabPageHandler::OnBrowserWindowInterfaceChanged() {
 }
 
 void NewTabPageHandler::MaybeTriggerAutomaticCustomizeChromePromo() {
+  if (!IsPrivacyFirstRemoteAllowed(profile_,
+                                   prefs::kNtpPrivacyFirstPromosEnabled)) {
+    return;
+  }
 // TODO(b/502297163): Implement for Android.
 #if !BUILDFLAG(IS_ANDROID)
   feature_promo_helper_->MaybeTriggerAutomaticCustomizeChromePromo(
@@ -1437,7 +1516,10 @@ ntp_tiles::TileType NewTabPageHandler::GetTileType() const {
 }
 
 bool NewTabPageHandler::IsActionChipsVisible() const {
-  return profile_->GetPrefs()->GetBoolean(prefs::kNtpToolChipsVisible);
+  return (!IsPrivacyFirstModeEnabled(profile_) ||
+          profile_->GetPrefs()->GetBoolean(
+              prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled)) &&
+         profile_->GetPrefs()->GetBoolean(prefs::kNtpToolChipsVisible);
 }
 
 bool NewTabPageHandler::IsShortcutsVisible() const {

@@ -181,6 +181,15 @@ NewTabPageUIConfig::CreateWebUIController(content::WebUI* web_ui,
 
 namespace {
 
+bool IsPrivacyFirstModeEnabled(Profile* profile) {
+  return profile->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstMode);
+}
+
+bool IsPrivacyFirstRemoteAllowed(Profile* profile, const char* pref_name) {
+  return !IsPrivacyFirstModeEnabled(profile) ||
+         profile->GetPrefs()->GetBoolean(pref_name);
+}
+
 constexpr char kPrevNavigationTimePrefName[] = "NewTabPage.PrevNavigationTime";
 // The value for the "udm" (Unified Drilldown Mode) query parameter.
 // value "50" triggers AI mode as opposed to traditional search.
@@ -270,10 +279,31 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
                      ntp_features::kNtpNextDisablementContextMenuParam.Get());
   source->AddBoolean("ntpNextDisablementEnabled",
                      ntp_features::kNtpNextDisablementParam.Get());
+  source->AddBoolean("ntpPrivacyFirstMode", IsPrivacyFirstModeEnabled(profile));
   source->AddBoolean(
+      "ntpPrivacyFirstDoodlesEnabled",
+      profile->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstDoodlesEnabled));
+  source->AddBoolean("ntpPrivacyFirstOneGoogleBarEnabled",
+                     profile->GetPrefs()->GetBoolean(
+                         prefs::kNtpPrivacyFirstOneGoogleBarEnabled));
+  source->AddBoolean(
+      "ntpPrivacyFirstPromosEnabled",
+      profile->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstPromosEnabled));
+  source->AddBoolean("ntpPrivacyFirstMicrosoftAuthEnabled",
+                     profile->GetPrefs()->GetBoolean(
+                         prefs::kNtpPrivacyFirstMicrosoftAuthEnabled));
+  source->AddBoolean("ntpPrivacyFirstRemoteSuggestionsEnabled",
+                     profile->GetPrefs()->GetBoolean(
+                         prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled));
+  source->AddBoolean("ntpPrivacyFirstWallpaperSearchEnabled",
+                     profile->GetPrefs()->GetBoolean(
+                         prefs::kNtpPrivacyFirstWallpaperSearchEnabled));
 
+  source->AddBoolean(
       "oneGoogleBarEnabled",
-      base::FeatureList::IsEnabled(ntp_features::kNtpOneGoogleBar));
+      base::FeatureList::IsEnabled(ntp_features::kNtpOneGoogleBar) &&
+          IsPrivacyFirstRemoteAllowed(
+              profile, prefs::kNtpPrivacyFirstOneGoogleBarEnabled));
   source->AddBoolean("shortcutsEnabled",
                      base::FeatureList::IsEnabled(ntp_features::kNtpShortcuts));
   source->AddBoolean("logoEnabled",
@@ -287,7 +317,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddBoolean(
       "middleSlotPromoEnabled",
       base::FeatureList::IsEnabled(ntp_features::kNtpMiddleSlotPromo) &&
-          profile->GetPrefs()->GetBoolean(prefs::kNtpPromoVisible));
+          profile->GetPrefs()->GetBoolean(prefs::kNtpPromoVisible) &&
+          IsPrivacyFirstRemoteAllowed(profile,
+                                      prefs::kNtpPrivacyFirstPromosEnabled));
   source->AddBoolean(
       "middleSlotPromoDismissalEnabled",
       base::FeatureList::IsEnabled(ntp_features::kNtpMiddleSlotPromoDismissal));
@@ -626,7 +658,10 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
           ntp_features::kNtpTabGroupsModuleWindowEndDeltaParam.Get()
               .InHours()));
 
-  bool microsoft_module_enabled = IsMicrosoftModuleEnabledForProfile(profile);
+  bool microsoft_module_enabled =
+      IsMicrosoftModuleEnabledForProfile(profile) &&
+      IsPrivacyFirstRemoteAllowed(profile,
+                                  prefs::kNtpPrivacyFirstMicrosoftAuthEnabled);
   source->AddBoolean("microsoftModuleEnabled", microsoft_module_enabled);
   source->AddBoolean("modulesReloadable", microsoft_module_enabled);
   source->AddBoolean("waitToLoadModules", microsoft_module_enabled);
@@ -691,8 +726,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
                      ntp_composebox::kShowContextMenuTabPreviews.Get());
   source->AddBoolean("composeboxContextMenuEnableMultiTabSelection",
                      ntp_composebox::kContextMenuEnableMultiTabSelection.Get());
-  source->AddBoolean("contextManagementInComposeboxEnabled",
-  base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
+  source->AddBoolean(
+      "contextManagementInComposeboxEnabled",
+      base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
   source->AddBoolean(
       "tabFaviconChipsToCoinsEnabled",
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) &&
@@ -845,8 +881,7 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
       navigation_start_time_(base::Time::Now()),
       module_id_details_(
           ntp::MakeModuleIdDetails(NewTabPageUI::IsManagedProfile(profile_),
-                                   profile_))
-{
+                                   profile_)) {
 
   instance_count_++;
   base::UmaHistogramCounts100("NewTabPage.Count", instance_count_);
@@ -866,8 +901,11 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(ntp_features::kNtpWallpaperSearchButton) &&
       customize_chrome::IsWallpaperSearchEnabledForProfile(profile_);
 #endif
-  source->AddBoolean("wallpaperSearchButtonEnabled",
-                     wallpaper_search_button_enabled);
+  source->AddBoolean(
+      "wallpaperSearchButtonEnabled",
+      wallpaper_search_button_enabled &&
+          IsPrivacyFirstRemoteAllowed(
+              profile_, prefs::kNtpPrivacyFirstWallpaperSearchEnabled));
 // TODO(b/502297163): Implement for Android.
 #if BUILDFLAG(IS_ANDROID)
   bool should_animate_wallpaper_search_button = false;
@@ -1496,8 +1534,11 @@ void NewTabPageUI::OnLoad() {
   base::DictValue update;
   update.Set("navigationStartTime",
              navigation_start_time_.InMillisecondsFSinceUnixEpoch());
-  const bool modules_enabled = ntp::HasModulesEnabled(
-      module_id_details_, IdentityManagerFactory::GetForProfile(profile_));
+  const bool modules_enabled =
+      ntp::HasModulesEnabled(module_id_details_,
+                             IdentityManagerFactory::GetForProfile(profile_)) &&
+      IsPrivacyFirstRemoteAllowed(
+          profile_, prefs::kNtpPrivacyFirstRemoteSuggestionsEnabled);
   update.Set("modulesEnabled", modules_enabled);
 
   // Set up the NTP promo, if any.

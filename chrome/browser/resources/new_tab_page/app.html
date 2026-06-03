@@ -3,10 +3,14 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
 #html_wrapper_imports_end -->
 <div id="content"
   ?ntp-threads-rail-open="${this.showComposebox_ && this.enableThreadsRail_}">
-  ${this.lazyRender_ && this.microsoftModuleEnabled_ ? html`
+  ${this.lazyRender_ && this.microsoftModuleEnabled_ &&
+      (!this.ntpPrivacyFirstMode_ ||
+       this.ntpPrivacyFirstMicrosoftAuthEnabled_) ? html`
     <iframe id="microsoftAuth" src="${this.microsoftAuthIframePath_}"></iframe>
   ` : ''}
-  ${this.lazyRender_ && this.oneGoogleBarEnabled_ ?
+  ${this.lazyRender_ && this.oneGoogleBarEnabled_ &&
+    (!this.ntpPrivacyFirstMode_ ||
+     this.ntpPrivacyFirstOneGoogleBarEnabled_) ?
     (
       this.ntpRealboxNextEnabled_ ?
         html`
@@ -109,6 +113,8 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
   </div>
   ${this.lazyRender_
     && this.ntpNextFeaturesEnabled_
+    && (!this.ntpPrivacyFirstMode_ ||
+        this.ntpPrivacyFirstRemoteSuggestionsEnabled_)
     && (!this.ntpNextDisablementEnabled_ || this.isActionChipsVisible_) ? html`
     <ntp-action-chips
         ?show-background="${this.showActionChipsBackground_()}"
@@ -137,13 +143,15 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
           @most-visited-auto-removed="${this.onMostVisitedAutoRemoved_}">
       </cr-most-visited>
     ` : ''}
-    ${this.middleSlotPromoEnabled_ ? html`
+    ${this.middleSlotPromoEnabled_ &&
+      (!this.ntpPrivacyFirstMode_ || this.ntpPrivacyFirstPromosEnabled_) ? html`
       <ntp-middle-slot-promo
           @ntp-middle-slot-promo-loaded="${this.onNtpMiddleSlotPromoLoaded_}"
           ?hidden="${!this.promoAndModulesLoaded_}">
       </ntp-middle-slot-promo>
     ` : ''}
-    ${this.modulesEnabled_ ? html`
+    ${this.modulesEnabled_ && (!this.ntpPrivacyFirstMode_ ||
+      this.ntpPrivacyFirstRemoteSuggestionsEnabled_) ? html`
       ${html`
         <ntp-modules id="modules"
             ?modules-shown-to-user="${this.modulesShownToUser}"
@@ -166,7 +174,8 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
         </cr-button>
       </cr-toast>
     ` : ''}
-    ${ this.showBrowserPromo_ && this.browserPromoType_ === 'simple' ? html`
+    ${ this.showBrowserPromo_ && this.browserPromoType_ === 'simple' &&
+      (!this.ntpPrivacyFirstMode_ || this.ntpPrivacyFirstPromosEnabled_) ? html`
         <individual-promos></individual-promos>
     ` : '' }
   ${!this.isFooterVisible_ ? html`

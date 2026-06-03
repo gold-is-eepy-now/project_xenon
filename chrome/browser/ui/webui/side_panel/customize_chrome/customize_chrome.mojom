@@ -95,6 +95,17 @@ struct ModuleSettings {
   bool visible;
 };
 
+// Privacy-first NTP state and explicitly re-enabled remote widgets.
+struct NtpPrivacyFirstSettings {
+  bool enabled;
+  bool doodles_enabled;
+  bool one_google_bar_enabled;
+  bool promos_enabled;
+  bool microsoft_auth_enabled;
+  bool remote_suggestions_enabled;
+  bool wallpaper_search_enabled;
+};
+
 // The state of the management notice in the NTP footer.
 struct ManagementNoticeState {
   bool can_be_shown;
@@ -142,7 +153,8 @@ interface CustomizeChromePageHandlerFactory {
 interface CustomizeChromePageHandler {
   // Sets the visibility of NTP tiles and the shortcuts type.
   SetMostVisitedSettings(array<ntp_tiles.mojom.TileType> shortcuts_types,
-    bool shortcuts_visible, bool personal_shortcuts_visible);
+                         bool shortcuts_visible,
+                         bool personal_shortcuts_visible);
 
   // Triggers a call to |CustomizeChromePage.SetPageMostVisitedSettings|.
   UpdateMostVisitedSettings();
@@ -159,6 +171,15 @@ interface CustomizeChromePageHandler {
 
   // Triggers a call to |CustomizeChromePage.SetModulesSettings|.
   UpdateModulesSettings();
+
+  // Enables privacy-first mode for the NTP.
+  SetNtpPrivacyFirstMode(bool enabled);
+
+  // Enables or disables a remote NTP widget while privacy-first mode is active.
+  SetNtpPrivacyFirstRemoteWidgetEnabled(string widget_id, bool enabled);
+
+  // Triggers a call to |CustomizeChromePage.SetNtpPrivacyFirstSettings|.
+  UpdateNtpPrivacyFirstSettings();
 
   // Triggers a call to |CustomizeChromePage.SetTheme()|.
   UpdateTheme();
@@ -180,8 +201,8 @@ interface CustomizeChromePageHandler {
 
   // Sets the background image and notifies all NTPs of the change.
   SetBackgroundImage(string attribution_1, string attribution_2,
-      url.mojom.Url attribution_url, url.mojom.Url image_url,
-      url.mojom.Url thumbnail_url, string collection_id);
+                     url.mojom.Url attribution_url, url.mojom.Url image_url,
+                     url.mojom.Url thumbnail_url, string collection_id);
 
   // Sets collection id for daily refresh. When |collection_id| is empty, the
   // daily refresh is turned off.
@@ -240,18 +261,18 @@ interface CustomizeChromePage {
   // Sets available modules and their associated properties such as id, name,
   // enabled status, visibility and managed state.
   SetModulesSettings(array<ModuleSettings> modules_settings, bool managed,
-      bool visible);
+                     bool visible);
+  // Sets privacy-first NTP state and remote widget toggles.
+  SetNtpPrivacyFirstSettings(NtpPrivacyFirstSettings settings);
   // Sets the visibility of NTP tiles, shortcuts type to select, and shortcut
   // types that should be hidden in the customization menu.
   SetMostVisitedSettings(array<ntp_tiles.mojom.TileType> shortcuts_types,
-    bool visible,
-    bool personal_shortcuts_visible,
-    array<ntp_tiles.mojom.TileType> disabled_shortcuts);
+                         bool visible, bool personal_shortcuts_visible,
+                         array<ntp_tiles.mojom.TileType> disabled_shortcuts);
   // Sets the tools visibility settings of the NTP tool chips.
   SetToolsSettings(bool visible);
   // Sets the visibility and disabled state of the NTP Footer.
-  SetFooterSettings(bool visible,
-                    bool extension_policy_enabled,
+  SetFooterSettings(bool visible, bool extension_policy_enabled,
                     ManagementNoticeState management_notice_state);
 
   // Sets the current theme.

@@ -31,6 +31,7 @@
 #include "chrome/browser/search/background/ntp_custom_background_service.h"
 #include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
 #include "chrome/browser/ui/search/ntp_user_data_logger.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/new_tab_page_untrusted_resources.h"
 #include "components/policy/core/browser/url_list/policy_blocklist_service.h"
@@ -47,6 +48,12 @@
 using URLBlocklistState = policy::URLBlocklist::URLBlocklistState;
 
 namespace {
+
+bool IsPrivacyFirstOneGoogleBarAllowed(Profile* profile) {
+  return !profile->GetPrefs()->GetBoolean(prefs::kNtpPrivacyFirstMode) ||
+         profile->GetPrefs()->GetBoolean(
+             prefs::kNtpPrivacyFirstOneGoogleBarEnabled);
+}
 
 constexpr int kMaxUriDecodeLen = 2048;
 
@@ -172,6 +179,11 @@ void UntrustedSource::StartDataRequest(
   }
   const std::string path = url.has_path() ? url.GetPath().substr(1) : "";
   if (path == "one-google-bar" && one_google_bar_service_) {
+    if (!IsPrivacyFirstOneGoogleBarAllowed(profile_)) {
+      std::move(callback).Run(base::MakeRefCounted<base::RefCountedString>());
+      return;
+    }
+
     std::map<std::string, std::string> params;
 
     std::string query_params;
