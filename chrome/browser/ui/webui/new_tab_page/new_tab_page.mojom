@@ -5,6 +5,7 @@
 module new_tab_page.mojom;
 
 import "components/ntp_tiles/tile_type.mojom";
+import "mojo/public/mojom/base/values.mojom";
 import "chrome/browser/ui/webui/ntp_microsoft_auth/ntp_microsoft_auth_shared_ui.mojom";
 import "skia/public/mojom/skcolor.mojom";
 import "ui/webui/resources/cr_components/most_visited/most_visited.mojom";
@@ -234,6 +235,10 @@ interface PageHandler {
   // Returns the order of modules or an empty array if the user has not
   // reordered them before.
   GetModulesOrder() => (array<string> module_ids);
+  // Returns the local-only JSON/dictionary layout for the NTP start page.
+  GetNtpStartPageLayout() => (mojo_base.mojom.Value layout);
+  // Stores the local-only JSON/dictionary layout for the NTP start page.
+  SetNtpStartPageLayout(mojo_base.mojom.Value layout) => ();
   // Triggers a call to |SetModulesLoadable|.
   UpdateModulesLoadable();
   // Disables modules with IDs |module_ids| if |disabled|. Enables otherwise.

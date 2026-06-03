@@ -1706,6 +1706,8 @@ inline constexpr char kNtpMicrosoftFilesModuleRetryAfterTime[] =
 inline constexpr char kNtpModulesOrder[] = "NewTabPage.ModulesOrder";
 // Whether NTP modules are visible.
 inline constexpr char kNtpModulesVisible[] = "NewTabPage.ModulesVisible";
+// Local-only dictionary describing the New Tab Page start page layout.
+inline constexpr char kNtpStartPageLayout[] = "NewTabPage.StartPageLayout";
 // Whether the AI action chips are visible in the NTP.
 inline constexpr char kNtpToolChipsVisible[] = "NewTabPage.ToolChipsVisible";
 // Dictionary of number of times a module has loaded.

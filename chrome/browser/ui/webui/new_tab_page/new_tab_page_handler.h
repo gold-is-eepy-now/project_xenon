@@ -16,6 +16,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
+#include "base/values.h"
 #include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service.h"
 #include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service_observer.h"
 #include "chrome/browser/new_tab_page/modules/new_tab_page_modules.h"
@@ -149,6 +150,9 @@ class NewTabPageHandler
       GetModulesEligibleForRemovalCallback callback) override;
   void SetModulesOrder(const std::vector<std::string>& module_ids) override;
   void GetModulesOrder(GetModulesOrderCallback callback) override;
+  void GetNtpStartPageLayout(GetNtpStartPageLayoutCallback callback) override;
+  void SetNtpStartPageLayout(base::Value layout,
+                             SetNtpStartPageLayoutCallback callback) override;
   void UpdateModulesLoadable() override;
   void UpdateActionChipsVisibility() override;
   void OnAppRendered(double time) override;

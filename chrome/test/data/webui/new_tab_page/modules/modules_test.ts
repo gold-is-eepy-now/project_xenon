@@ -43,6 +43,13 @@ suite('NewTabPageModulesModulesV2Test', () => {
     callbackRouterRemote = NewTabPageProxy.getInstance()
                                .callbackRouter.$.bindNewPipeAndPassRemote();
     handler.setResultFor('getModulesEligibleForRemoval', {moduleIds: []});
+    handler.setResultFor('getNtpStartPageLayout', {
+      layout: {
+        dictionaryValue: {
+          storage: {widgets: {listValue: {storage: []}}},
+        },
+      },
+    });
   });
 
   async function createModulesElement(
