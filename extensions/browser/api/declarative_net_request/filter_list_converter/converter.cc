@@ -11,7 +11,9 @@
 #include <string_view>
 #include <utility>
 
+#include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
+#include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
@@ -22,7 +24,6 @@
 #include "extensions/browser/api/declarative_net_request/indexed_rule.h"
 #include "extensions/common/api/declarative_net_request.h"
 #include "extensions/common/api/declarative_net_request/constants.h"
-#include "extensions/common/api/declarative_net_request/test_utils.h"
 #include "url/gurl.h"
 
 namespace extensions::declarative_net_request {
@@ -505,9 +506,26 @@ class DNRJsonRuleOutputStream : public subresource_filter::RuleOutputStream {
 
     switch (write_type_) {
       case filter_list_converter::kExtension: {
-        TestRulesetInfo info(kRulesetID, kJSONRulesFilename,
-                             output_rules_list_.Clone());
-        WriteManifestAndRuleset(output_path_, info, {} /* hosts */);
+        base::Value::List rulesets;
+        rulesets.Append(base::Value::Dict()
+                            .Set("id", kRulesetID)
+                            .Set("path", kJSONRulesFilename)
+                            .Set("enabled", true));
+        base::Value::Dict manifest;
+        manifest.Set("manifest_version", 3);
+        manifest.Set("name", "Filter list");
+        manifest.Set("version", "1.0");
+        manifest.Set(
+            "declarative_net_request",
+            base::Value::Dict().Set("rule_resources", std::move(rulesets)));
+        std::string manifest_json;
+        CHECK(base::JSONWriter::WriteWithOptions(
+            manifest, base::JSONWriter::OPTIONS_PRETTY_PRINT, &manifest_json));
+        CHECK(base::CreateDirectory(output_path_));
+        CHECK(base::WriteFile(output_path_.AppendASCII("manifest.json"),
+                              manifest_json));
+        JSONFileValueSerializer(output_path_.AppendASCII(kJSONRulesFilename))
+            .Serialize(output_rules_list_);
         break;
       }
       case filter_list_converter::kJSONRuleset:
