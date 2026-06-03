@@ -1,0 +1,24 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//extensions/buildflags/buildflags.gni")
+
+assert(enable_extensions)
+
+source_set("native_shields") {
+  sources = [
+    "custom_filter_list_subscription_manager.cc",
+    "custom_filter_list_subscription_manager.h",
+  ]
+
+  deps = [
+    "//base",
+    "//crypto",
+    "//extensions/browser",
+    "//extensions/browser/api/declarative_net_request/filter_list_converter:support",
+    "//extensions/common",
+    "//extensions/common/api",
+    "//url",
+  ]
+}
