@@ -1,0 +1,92 @@
+<section id="editor" aria-label="Start Page Editor">
+  <header>
+    <div>
+      <h2>Start Page Editor</h2>
+      <p>
+        Drag widgets to reorder and use resize handles to change grid width.
+        Saves only sanitized structured local profile data, never arbitrary HTML
+        or script.
+      </p>
+    </div>
+    <div id="actions">
+      <cr-button @click="${this.onSaveClick_}">Save</cr-button>
+      <cr-button @click="${this.onResetClick_}">Reset</cr-button>
+      <cr-button @click="${this.onExportClick_}">Export</cr-button>
+      <cr-button @click="${this.onImportClick_}">Import</cr-button>
+    </div>
+  </header>
+
+  <div id="privacyNote">
+    User-created notes, link labels, and text cards are stored in this Chrome
+    profile by default and are not uploaded unless sync for the corresponding
+    data category is explicitly enabled.
+  </div>
+
+  <label id="clockWeatherToggle">
+    <input type="checkbox" .checked="${this.layout?.clockWeatherEnabledLocally || false}"
+        @change="${this.onClockWeatherEnabledChange_}">
+    Enable local clock/weather widget
+  </label>
+
+  <div id="palette" aria-label="Add widgets">
+    ${this.widgetTypes_().map(type => html`
+      <cr-button data-type="${type}" @click="${this.onAddWidgetClick_}">
+        Add ${this.widgetLabel_(type)}
+      </cr-button>
+    `)}
+  </div>
+
+  <div id="grid" @dragover="${this.onDragOver_}">
+    ${this.layout?.widgets.map(widget => html`
+      <article class="widget" style="${this.widgetStyle_(widget)}"
+          draggable="true" data-id="${widget.id}"
+          @dragstart="${this.onDragStart_}" @dragover="${this.onDragOver_}"
+          @drop="${this.onDrop_}">
+        <div class="widgetHeader">
+          <span class="dragHandle" aria-hidden="true">⋮⋮</span>
+          <div>
+            <h3>${widget.title || this.widgetLabel_(widget.type)}</h3>
+            <p>${this.widgetLabel_(widget.type)}</p>
+          </div>
+          <cr-button data-id="${widget.id}" @click="${this.onRemoveWidgetClick_}">
+            Remove
+          </cr-button>
+        </div>
+        <label class="field">
+          Title
+          <input data-id="${widget.id}" data-field="title" .value="${widget.title}"
+              @input="${this.onWidgetStringInput_}">
+        </label>
+        ${this.isTextWidget_(widget) ? html`
+          <label class="field">
+            Local text
+            <textarea data-id="${widget.id}" data-field="text"
+                .value="${widget.text}" @input="${this.onWidgetStringInput_}"></textarea>
+          </label>
+        ` : ''}
+        ${this.isBookmarksFolderWidget_(widget) ? html`
+          <label class="field">
+            Bookmark folder id
+            <input data-id="${widget.id}" data-field="sourceId"
+                .value="${widget.sourceId}" @input="${this.onWidgetStringInput_}">
+          </label>
+        ` : ''}
+        <div class="resizeHandles" aria-label="Resize widget">
+          <button data-id="${widget.id}" @click="${(e: Event) => this.resizeWidget_(e, -1)}"
+              aria-label="Make widget narrower">−</button>
+          <span>${widget.width}/${this.layout?.columns || 12}</span>
+          <button data-id="${widget.id}" @click="${(e: Event) => this.resizeWidget_(e, 1)}"
+              aria-label="Make widget wider">+</button>
+        </div>
+      </article>
+    `)}
+  </div>
+
+  <label id="importExportLabel">
+    Sanitized layout JSON
+    <textarea .value="${this.importExportText_}"
+        @input="${this.onImportExportInput_}"></textarea>
+  </label>
+
+  <div id="status" role="status">${this.status_}</div>
+</section>

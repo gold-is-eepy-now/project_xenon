@@ -198,6 +198,16 @@ cr-most-visited {
   z-index: 2;
 }
 
+#startPageEditorButton {
+  margin: 8px 0 12px;
+  z-index: 2;
+}
+
+ntp-start-page-editor {
+  width: 100%;
+  z-index: 2;
+}
+
 #modules:not([hidden]) {
   /* We use animation instead of transition to allow a fade-in out of
      display: none. */

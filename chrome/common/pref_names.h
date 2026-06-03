@@ -1702,6 +1702,10 @@ inline constexpr char kNtpMicrosoftFilesModuleLastDismissedTime[] =
 // error.
 inline constexpr char kNtpMicrosoftFilesModuleRetryAfterTime[] =
     "NewTabPage.MicrosoftFilesModuleRetryAfterTime";
+// Local profile Start Page layout edited from chrome://new-tab-page. This pref
+// stores only sanitized structured widget data; arbitrary HTML/script is never
+// persisted by the Start Page editor.
+inline constexpr char kNtpStartPageLayout[] = "NewTabPage.StartPageLayout";
 // List keeping track of NTP modules order.
 inline constexpr char kNtpModulesOrder[] = "NewTabPage.ModulesOrder";
 // Whether NTP modules are visible.

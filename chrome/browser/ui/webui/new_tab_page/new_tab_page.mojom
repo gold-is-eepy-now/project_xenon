@@ -186,6 +186,46 @@ enum OptInStatus {
   kOptOut,
 };
 
+// Supported widget types for the local Start Page layout editor. The renderer
+// may offer drag/drop and resize affordances, but only these structured widget
+// records are persisted.
+enum StartPageWidgetType {
+  kSearchBox,
+  kCustomLinkGroup,
+  kBookmarksFolder,
+  kLocalNote,
+  kClockWeather,
+  kBlankSpacer,
+  kMostVisited,
+  kModules,
+  kTextCard,
+};
+
+struct StartPageLink {
+  string label;
+  url.mojom.Url url;
+};
+
+struct StartPageWidget {
+  string id;
+  StartPageWidgetType type;
+  uint32 column;
+  uint32 row;
+  uint32 width;
+  uint32 height;
+  string title;
+  string text;
+  string source_id;
+  array<StartPageLink> links;
+};
+
+struct StartPageLayout {
+  uint32 version;
+  uint32 columns;
+  bool clock_weather_enabled_locally;
+  array<StartPageWidget> widgets;
+};
+
 // Used by the WebUI page to bootstrap bidirectional communication.
 interface PageHandlerFactory {
   // The WebUI page's |BrowserProxy| singleton calls this method when the page
@@ -249,6 +289,22 @@ interface PageHandler {
   IncrementComposeButtonShownCount();
   // Opens Customize Chrome if eligibility conditions are met.
   MaybeTriggerAutomaticCustomizeChromePromo();
+
+  // Returns the sanitized Start Page layout stored in the local profile.
+  GetStartPageLayout() => (StartPageLayout layout);
+  // Saves the provided Start Page layout after sanitizing it to the structured
+  // schema. User-created text stays in profile prefs and is not uploaded unless
+  // the user explicitly enables syncing for the backing category.
+  SaveStartPageLayout(StartPageLayout layout)
+      => (bool success, string error, StartPageLayout sanitized_layout);
+  // Resets the Start Page layout pref to the default local layout.
+  ResetStartPageLayout() => (StartPageLayout layout);
+  // Exports the sanitized layout as JSON. The export contains no script or
+  // remote HTML.
+  ExportStartPageLayout() => (string json);
+  // Imports a JSON layout, sanitizes it, saves it, and returns the result.
+  ImportStartPageLayout(string json)
+      => (bool success, string error, StartPageLayout sanitized_layout);
 
   // ======= METRICS =======
   // Logs that the One Google Bar was added to the DOM / loaded in an iframe at
