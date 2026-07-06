@@ -1,11 +1,10 @@
 # Building Xenon on FreeBSD
 
-This guide covers building **Xenon** (this Chromium fork) on FreeBSD. It assumes
-you've read the generic
-[Checking out and building Chromium on FreeBSD](./build_instructions.md) guide,
-which covers system requirements, dependencies, and the `www/chromium` port —
-all of which still apply. This document only describes the **Xenon-specific**
-deltas.
+This guide is the Xenon-specific FreeBSD build path. It starts from the
+Chromium/FreeBSD requirements in [build_instructions.md](./build_instructions.md)
+but calls out the parts that are different for **Xenon**: this repository,
+Xenon's in-tree FreeBSD work, the remaining vendored patches, and the
+`xenon_*` GN args.
 
 [TOC]
 
@@ -26,18 +25,18 @@ just want a working browser today, use the upstream `www/chromium` package/port
 (see the generic guide).
 ***
 
-## 1. System requirements and dependencies
+## 1. Install the FreeBSD build prerequisites
 
-Identical to the generic guide — see
+Use the dependency list from the generic FreeBSD guide:
 [System requirements](./build_instructions.md#system-requirements) and
-[Install dependencies](./build_instructions.md#install-dependencies). Summary:
+[Install dependencies](./build_instructions.md#install-dependencies). In short:
 
 * 64-bit `amd64` or `aarch64`; FreeBSD 13.2+ (14.x/15.x recommended).
 * ~8GB RAM / ~35GB disk for a release build (more is better; the final link is
   the peak — configure swap).
 * Base-system `clang`/`libc++`. `python` must resolve to Python 3.9+.
 
-Install the same `pkg` dependency set listed in the generic guide.
+Install the `pkg` dependency set listed there before continuing.
 
 ## 2. Get the Xenon source
 
@@ -85,11 +84,16 @@ rebased by hand before a full build will succeed. Cross-reference the upstream
 file with the patch's hunks. (Re-running `sh build/freebsd/fetch_port_patches.sh`
 restores the full upstream snapshot if you need a clean baseline.)
 
-## 4. Configure the build (`args.gn`)
+## 4. Configure Xenon (`args.gn`)
 
-Start from the known-good FreeBSD baseline in the generic guide
+Start from the FreeBSD baseline in the generic guide
 ([Setting up the build](./build_instructions.md#setting-up-the-build)), then add
-the Xenon knobs. FreeBSD is detected automatically — do **not** set `target_os`.
+the Xenon args below.
+
+On a native FreeBSD host, do **not** set `target_os`; GN detects FreeBSD and
+selects Xenon's `//build/toolchain/freebsd` toolchain automatically. If you are
+only generating FreeBSD files from another host for bring-up/debugging, set
+`target_os = "freebsd"` explicitly so Xenon selects the FreeBSD target toolchain.
 
 ```shell
 $ gn gen out/Xenon
@@ -111,24 +115,26 @@ is_official_build = true
 symbol_level = 0
 
 # --- Xenon configuration surface (build/config/xenon/xenon.gni) ---
-is_xenon = true                      # master switch (false == stock Chromium)
+is_xenon = true                      # build Xenon behavior where implemented
 
-# Pillar 1 — performance (optional; raises CPU baseline, see docs/xenon/performance.md)
+# Pillar 1 — performance knobs
 xenon_full_optimization = true       # -O3
 xenon_simd_level = "sse4"            # sse2|sse3|sse4|avx|avx2 (match your CPU floor)
 xenon_use_aes_ni = true              # -maes -mpclmul
 
-# Pillar 2 — privacy/safety (see docs/xenon/privacy.md)
+# Pillar 2 — privacy/safety knobs
 xenon_disable_google_services = false
 xenon_privacy_hardening = false
 
-# Pillar 3 — customization (see docs/xenon/customization.md)
+# Pillar 3 — customization knobs
 xenon_enable_customization_ui = false
 ```
 
-`gn args out/Xenon --list | grep xenon` shows the resolved Xenon args. With
-`is_xenon = false` (or all knobs at defaults) the result is byte-for-byte stock
-Chromium, which is useful for isolating fork-specific issues.
+`gn args out/Xenon --list | grep xenon` shows the resolved Xenon args. The
+performance/privacy/customization knobs are still being wired in incrementally;
+`build/config/xenon/xenon.gni` is the source of truth for current defaults.
+Use `is_xenon = false` only when you need to isolate a regression against
+upstream-like Chromium behavior.
 
 *** note
 **Distribution caution.** Raising `xenon_simd_level` raises the minimum CPU

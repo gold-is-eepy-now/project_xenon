@@ -1,14 +1,11 @@
-# Checking out and building Chromium on FreeBSD
+# Checking out and building Xenon on FreeBSD
+
+This page is the FreeBSD baseline for Xenon. For the Xenon-specific FreeBSD
+path, including in-tree FreeBSD work, remaining vendored patches, and
+`xenon_*` args, use [xenon_build_instructions.md](./xenon_build_instructions.md).
 
 There are instructions for other platforms linked from the
 [get the code](../get_the_code.md) page.
-
-*** promo
-**Building the Xenon fork (not stock Chromium)?** See
-[Building Xenon on FreeBSD](./xenon_build_instructions.md), which layers the
-Xenon-specific steps (in-tree FreeBSD support, the remaining vendored patches,
-and the `xenon_*` GN args) on top of this guide.
-***
 
 [TOC]
 
@@ -94,7 +91,7 @@ $ sudo make install clean
 To build a *customized* package set repeatably, use `poudriere`, which compiles
 ports in a clean jail exactly the way the official mirrors do.
 
-The rest of this document is for developers who want to build Chromium directly
+The rest of this document is for developers who want to build Xenon directly
 from source rather than through the port.
 
 ## Install dependencies
@@ -256,7 +253,7 @@ build (`is_component_build=true`, development only), lower Ninja parallelism wit
 `-j`, and add swap. See [Tips](#tips-tricks-and-troubleshooting).
 ***
 
-## Build Chromium
+## Build Xenon
 
 Build the `chrome` target:
 
@@ -276,7 +273,7 @@ On a memory-constrained machine, cap parallelism:
 $ ninja -C out/Default chrome -j4
 ```
 
-## Run Chromium
+## Run Xenon
 
 ```shell
 $ out/Default/chrome

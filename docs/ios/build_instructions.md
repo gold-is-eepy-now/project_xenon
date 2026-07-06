@@ -1,4 +1,8 @@
-# Checking out and building Chromium for iOS
+# Checking out and building Xenon for iOS
+
+These instructions build Xenon for iOS. Xenon inherits Chromium's iOS build
+tooling, so some commands, targets, bundle identifiers, and upstream links still
+use Chromium/Chrome names where the build system requires them.
 
 There are instructions for other platforms linked from the
 [get the code](../get_the_code.md) page.
@@ -103,7 +107,7 @@ is an artifact, any changes made in the project itself will be ignored.*
 You can customize the build by editing a file called `.setup-gn` (create it if
 it does not exist). It can be stored in two locations:
 
-* `$HOME/.setup-gn` (the settings will be applied to all Chromium checkouts).
+* `$HOME/.setup-gn` (the settings will be applied to all Xenon/Chromium checkouts).
 * The directory above `src/` (i.e. the directory containing your `.gclient`)
   for checkout-specific settings.
 
@@ -557,7 +561,7 @@ $ sudo sysctl kern.maxvnodes=$((512*1024))
 ```
 
 Higher values may be appropriate if you routinely move between different
-Chromium checkouts.  This setting will reset on reboot, the startup setting can
+Xenon/Chromium checkouts.  This setting will reset on reboot, the startup setting can
 be set in `/etc/sysctl.conf`:
 
 ```shell

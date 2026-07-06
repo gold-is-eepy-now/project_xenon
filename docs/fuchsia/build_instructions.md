@@ -1,4 +1,8 @@
-# Checking out and building on Fuchsia
+# Checking out and building Xenon on Fuchsia
+
+These instructions build Xenon for Fuchsia. Xenon inherits Chromium's Fuchsia
+build tooling, so some commands, targets, and upstream links still use
+Chromium/Chrome names where the build system requires them.
 
 ***If you have followed the instructions below and are still having trouble,
 see [Contact information](README.md#contact-information).***
@@ -12,8 +16,8 @@ are willing to run emulator based tests locally, KVM is required. You may check
 if `/dev/kvm` exists on the system, or follow the [Enable KVM](#enable-kvm)
 section.
 
-1. Follow up [chromium for linux](../linux/build_instructions.md) to setup
-chromium environment.
+1. Follow the [Xenon Linux build instructions](../linux/build_instructions.md)
+   to set up a Xenon checkout and Linux build environment.
 
 2. Edit your `.gclient` to add `fuchsia` to the `target_os` list. The file
    should look similar to this:

@@ -1,4 +1,8 @@
-# Checking out and building Chromium for Mac
+# Checking out and building Xenon for Mac
+
+These instructions build Xenon for macOS. Xenon inherits Chromium's Mac
+build tooling, so some commands, targets, app bundle names, and upstream links
+still use Chromium/Chrome names where the build system requires them.
 
 There are instructions for other platforms linked from the
 [get the code](get_the_code.md) page.
@@ -117,7 +121,7 @@ $ gn gen out/Default
   operating system and CPU.
 * For more info on GN, run `gn help` on the command line or read the
   [quick start guide](https://gn.googlesource.com/gn/+/main/docs/quick_start.md).
-* Building Chromium for arm Macs requires [additional setup](mac_arm64.md).
+* Building Xenon for Arm Macs requires [additional setup](mac_arm64.md).
 
 
 ### Faster builds
@@ -169,9 +173,9 @@ builds.
 
 You might also want to [install ccache](ccache_mac.md) to speed up the build.
 
-## Build Chromium
+## Build Xenon
 
-Build Chromium (the "chrome" target) with Ninja using the command:
+Build Xenon (the inherited "chrome" target) with Ninja using the command:
 
 ```shell
 $ autoninja -C out/Default chrome
@@ -187,7 +191,7 @@ out/Default chrome/test:unit_tests`).
 
 See [Siso tips](../siso_tips.md) too.
 
-## Run Chromium
+## Run Xenon
 
 Once it is built, you can simply run the browser:
 
@@ -316,7 +320,7 @@ $ sudo sysctl kern.maxvnodes=$((512*1024))
 ```
 
 Higher values may be appropriate if you routinely move between different
-Chromium checkouts.  This setting will reset on reboot.  To apply it at startup:
+Xenon/Chromium checkouts.  This setting will reset on reboot.  To apply it at startup:
 
 ```shell
 $ sudo tee /Library/LaunchDaemons/kern.maxvnodes.plist > /dev/null <<EOF
@@ -393,6 +397,6 @@ Chromium's checkout contains a lot of files, and building generates many more.
 Spotlight will try to index all of those files, and uses a lot of CPU time
 doing so, especially during a build, which can slow things down.
 
-To prevent the Chromium checkout from being indexed by Spotlight, open System
-Preferences, go to "Spotlight" -> "Privacy" and add your Chromium checkout
+To prevent the Xenon checkout from being indexed by Spotlight, open System
+Preferences, go to "Spotlight" -> "Privacy" and add your Xenon checkout
 directory to the list of excluded locations.
