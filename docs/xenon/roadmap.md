@@ -25,7 +25,7 @@ trusted until they compile and run. So Xenon's strategy is:
 * `wip` — partially wired.
 * `done` — wired and verified against a real build.
 
-## Phase 0 — Foundations (this change)
+## Phase 0 — Foundations
 
 | Item | Status | Notes |
 | --- | --- | --- |

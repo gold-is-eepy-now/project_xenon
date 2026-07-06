@@ -1,4 +1,8 @@
-# Checking out and Building Chromium for Windows
+# Checking out and building Xenon for Windows
+
+These instructions build Xenon for Windows. Xenon inherits Chromium's Windows
+build tooling, so some commands, targets, binary names, and upstream links
+still use Chromium/Chrome names where the build system requires them.
 
 There are instructions for other platforms linked from the
 [get the code](get_the_code.md) page.
@@ -385,9 +389,9 @@ You can also get a visual report of the build performance with
 [perfetto](https://ui.perfetto.dev/) by uploading `.ninja_log` or
  `siso_trace.json`.
 
-## Build Chromium
+## Build Xenon
 
-Build Chromium (the "chrome" target) with Ninja using the command:
+Build Xenon (the inherited "chrome" target) with Ninja using the command:
 
 ```shell
 $ autoninja -C out\Default chrome
@@ -403,7 +407,7 @@ use `autoninja -C out\Default chrome/test:unit_tests`).
 
 Tips: See [Siso tips](../siso_tips.md).
 
-## Run Chromium
+## Run Xenon
 
 Once it is built, you can simply run the browser:
 

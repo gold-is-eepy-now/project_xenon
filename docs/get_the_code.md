@@ -1,11 +1,17 @@
-# Get the code: check out, build, and run Chromium.
+# Get the code: check out, build, and run Xenon.
+
+This page is the Xenon entry point for checkout and build docs. Xenon follows
+Chromium's source layout and tooling, so some commands, target names, and
+upstream links still say `chromium` or `chrome` where those names are inherited
+from Chromium.
 
 [Browse or Search Chromium Code](https://source.chromium.org/chromium) online.
 
-Chromium supports building on Windows, Mac and Linux host systems. FreeBSD is
-additionally supported by the community.
+Xenon follows Chromium's supported host platforms: Windows, Mac, and Linux.
+FreeBSD is additionally supported by Xenon's in-tree bring-up work and the
+community FreeBSD Chromium port.
 
-The process for building Chrome is generally the same on all platforms, but
+The process for building Xenon is generally the same on all platforms, but
 each platform has a few quirks. In order to keep you from having to jump
 all over the place, we have a self-contained page for each configuration
 you might want to build:

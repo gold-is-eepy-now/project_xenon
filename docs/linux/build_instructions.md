@@ -1,4 +1,8 @@
-# Checking out and building Chromium on Linux
+# Checking out and building Xenon on Linux
+
+These instructions build Xenon on Linux. Xenon inherits Chromium's Linux
+build tooling, so some commands, targets, binary names, and upstream links
+still use Chromium/Chrome names where the build system requires them.
 
 There are instructions for other platforms linked from the
 [get the code](../get_the_code.md) page.
@@ -472,9 +476,9 @@ by using the Linux `strip` command to remove this debug information. You can
 also reduce binary size and turn on all optimizations by enabling official build
 mode, with the GN arg `is_official_build = true`.
 
-## Build Chromium
+## Build Xenon
 
-Build Chromium (the "chrome" target) with Siso or Ninja using the command:
+Build Xenon (the inherited "chrome" target) with Siso or Ninja using the command:
 
 ```shell
 $ autoninja -C out/Default chrome
@@ -490,7 +494,7 @@ Siso/Ninja with no preceding "//" (so, for `//chrome/test:unit_tests` use
 
 Tips: See [Siso tips](../siso_tips.md).
 
-## Run Chromium
+## Run Xenon
 
 Once it is built, you can simply run the browser:
 
@@ -552,7 +556,7 @@ $ git rebase-update
 $ gclient sync
 ```
 
-The first command updates the primary Chromium source repository and rebases
+The first command updates the primary Xenon source repository and rebases
 any of your local branches on top of tip-of-tree (aka the Git branch
 `origin/main`). If you don't want to use this script, you can also just use
 `git pull` or other common Git commands to update the repo.
@@ -853,7 +857,7 @@ ENV PATH="/depot_tools:${PATH}"
 RUN git config --global --add safe.directory /depot_tools && \
     git config --global --add safe.directory /chromium/src
 
-# Set the working directory to the existing Chromium source directory.
+# Set the working directory to the existing Xenon source directory.
 # This can be either "/chromium/src" or "/chromium".
 WORKDIR /chromium/src
 
@@ -868,7 +872,7 @@ RUN groupadd -g 1001 chrom-d && \
 # not advised.
 USER chrom-d
 
-# Start Chromium Builder "chrom-d" (modify this command as needed)
+# Start the inherited Chromium Builder "chrom-d" (modify this command as needed)
 # CMD ["autoninja -C out/Default chrome"]
 CMD ["bash"]
 ```

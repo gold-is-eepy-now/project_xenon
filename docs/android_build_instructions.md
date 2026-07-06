@@ -1,4 +1,8 @@
-# Checking out and building Chromium for Android
+# Checking out and building Xenon for Android
+
+These instructions build Xenon for Android. Xenon inherits Chromium's Android
+build tooling, so some commands, targets, package names, and upstream links
+still use Chromium/Chrome names where the build system requires them.
 
 There are instructions for other platforms linked from the
 [get the code](get_the_code.md) page.
@@ -172,9 +176,9 @@ ro.product.cpu.abi`:
 non-WebView targets.
 ***
 
-## Build Chromium
+## Build Xenon
 
-Build Chromium with Siso or Ninja using the command:
+Build Xenon with Siso or Ninja using the command:
 
 ```shell
 autoninja -C out/Default chrome_public_apk
@@ -230,7 +234,7 @@ any of your local branches on top of tip-of-tree (aka the Git branch
 The second command syncs dependencies to the appropriate versions and re-runs
 hooks as needed.
 
-## Installing and Running Chromium on a device
+## Installing and running Xenon on a device
 
 ### Plug in your Android device
 
@@ -452,7 +456,7 @@ Some APKs (e.g. WebView) do not work with `incremental install = true` and are
 always built as normal APKs. This behavior is controlled via
 `never_incremental = true`.
 
-## Installing and Running Chromium on an Emulator
+## Installing and running Xenon on an emulator
 
 Running on an emulator is the same as on a device. Refer to
 [android_emulator.md](android_emulator.md) for setting up emulators.
@@ -477,7 +481,7 @@ committing code to chromium.
 
 ### Building with Docker
 
-To build Chromium for Android using Docker, please follow the
+To build Xenon for Android using Docker, please follow the
 instructions in the [Docker in Linux build instructions](/docs/linux/build_instructions.md#docker).
 
 *** note
